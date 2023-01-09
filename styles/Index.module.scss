@@ -112,3 +112,27 @@
 		}
 	}
 }
+
+.content_box {
+	display: flex;
+	flex-direction: row;
+	margin-top: 30px;
+
+	& > div:first-child {
+		padding-right: 20px;
+		width: 300px;
+	}
+
+	& > div > div {
+		border-radius: 40px;
+		box-shadow: 0 0 40px 0 rgb(0 0 0 / 15%);
+		background-color: #FFF;
+		height: 100%;
+		padding: 30px;
+
+		& > h3 {
+			margin: 0;
+			margin-bottom: 10px;
+		}
+	}
+}
