@@ -1,15 +1,15 @@
 import * as React from 'react';
 import Head from 'next/head'
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
 
 import styles from '../styles/Index.module.scss'
 
 import SearchIcon from '@mui/icons-material/Search';
+
+import ModbusScaner from '../src/pages/ModbusScaner';
 
 export default function Home() {
 	const [ selectTool, setSelectTool ] = React.useState(null);
@@ -67,10 +67,47 @@ export default function Home() {
 		handleCloseStopBitSelect();
 	};
 
-	const [ idScanRange, setIdScanRange ] = React.useState("1-127");
+	const [ serialPort, setSerialPort ] = React.useState(null);
 
-	const handleChangeidScanRangeInput = e => {
-		setIdScanRange(e.target.value);
+	React.useEffect(() => {
+		navigator.serial.addEventListener("disconnect", () => {
+			console.log("serial disconnect");
+			setSerialPort(null);
+		});
+	}, []);
+
+	const handleClickConnect = async () => {
+		let port;
+		try {
+			port = await navigator.serial.requestPort();
+		} catch(e) {
+			console.log("request port fail", e);
+			return;
+		}
+
+		try {
+			await port.open({ 
+				baudRate: serialConfigs.baud,
+				parity: serialConfigs.parity.toLocaleLowerCase(),
+				dataBits: 8,
+				stopBits: serialConfigs.stop_bit
+			});
+		} catch(e) {
+			alert("Error: " + e.toString());
+			return;
+		}
+
+		console.log("serial connected");
+		setSerialPort(port);
+	}
+
+	const handleClickDisconnect = async () => {
+		if (!serialPort) {
+			return;
+		}
+
+		await serialPort.close();
+		setSerialPort(null);
 	}
 
 	return (
@@ -142,26 +179,14 @@ export default function Home() {
 								</Menu>
 							</div>
 							<div>
-								<Button variant="contained" color="primary" disableElevation>เชื่อมต่อ</Button>
+								{!serialPort && <Button variant="contained" color="primary" onClick={handleClickConnect} disableElevation>เชื่อมต่อ</Button>}
+								{serialPort && <Button variant="contained" color="secondary" onClick={handleClickDisconnect} disableElevation>ยกเลิกเชื่อมต่อ</Button>}
 							</div>
 						</div>
-						<div className={styles.content_box}>
-							<div>
-								<div>
-									<h3>ตั้งค่าการสแกน</h3>
-									<TextField
-										label="ช่วงหมายเลขสแกน"
-										value={idScanRange}
-										onChange={handleChangeidScanRangeInput}
-										size="small"
-										fullWidth
-									/>
-								</div>
-							</div>
-						</div>
+						<ModbusScaner serialPort={serialPort} />
 					</>}
 				</section>
-				<footer>พัฒนาโดย <a href="https://www.artronshop.co.th" target="_blank">บริษัท อาร์ทรอน ชอป จำกัด</a> | ให้บริการวิจัยและพัฒนาสินค้ากลุ่มอิเล็กทรอนิกส์อัจฉริยะ</footer>
+				<footer>พัฒนาโดย <a href="https://www.artronshop.co.th" target="_blank">บริษัท อาร์ทรอน ชอป จำกัด</a> | ให้บริการวิจัยและพัฒนาอุปกรณ์อิเล็กทรอนิกส์อัจฉริยะ</footer>
 			</main>
 		</>
 	)

@@ -1,0 +1,33 @@
+.content_box {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	margin-top: 30px;
+
+	& > div:first-child {
+		padding-right: 30px;
+		width: 330px;
+	}
+
+	& > div:last-child {
+		flex-grow: 1;
+	}
+
+	& > div > div {
+		border-radius: 40px;
+		box-shadow: 0 0 40px 0 rgb(0 0 0 / 15%);
+		background-color: #FFF;
+		height: 100%;
+		padding: 30px;
+
+		& > h3 {
+			margin: 0;
+			margin-bottom: 10px;
+		}
+	}
+}
+
+.content_disable {
+	opacity: 0.8;
+	pointer-events: none;
+}

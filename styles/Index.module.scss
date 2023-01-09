@@ -1,10 +1,12 @@
 .main {
-	width: 100vw;
+	width: 100%;
 	height: 100vh;
+	overflow-y: scroll;
 	background-image: url('/images/bg-main.png');
 	background-position: center;
 	background-size: cover;
-	font-family: 'supermarket';
+	// font-family: 'supermarket';
+	font-family: 'Kanit', sans-serif;
 	display: flex;
 	flex-direction: column;
 	color: #2C3E50;
@@ -116,11 +118,16 @@
 .content_box {
 	display: flex;
 	flex-direction: row;
+	align-items: flex-start;
 	margin-top: 30px;
 
 	& > div:first-child {
-		padding-right: 20px;
-		width: 300px;
+		padding-right: 30px;
+		width: 330px;
+	}
+
+	& > div:last-child {
+		flex-grow: 1;
 	}
 
 	& > div > div {
