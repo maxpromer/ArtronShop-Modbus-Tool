@@ -17,8 +17,10 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import LoadingButton from '@mui/lab/LoadingButton';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
+import DoDisturbOnRoundedIcon from '@mui/icons-material/DoDisturbOnRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 
 import styles from '../../styles/ModbusScaner.module.scss';
@@ -43,7 +45,7 @@ function crc16(buffer, length) {
 };
 
 export default function ModbusScaner({ serialPort }) {
-	const [ idScanRange, setIdScanRange ] = React.useState("1-127");
+	const [ idScanRange, setIdScanRange ] = React.useState("2");
 	const handleChangeidScanRangeInput = e => {
 		setIdScanRange(e.target.value.replace(/[^0-9\-\,]|/g, ''));
 	}
@@ -114,19 +116,54 @@ export default function ModbusScaner({ serialPort }) {
 	const scanRows = getIdRangeArray(idScanRange);
 
     const [ scaning, setScaning ] = React.useState(false);
-    const [ scanResult, setScanResult ] = React.useState([]);
+    const [ scanResult, setScanResult ] = React.useState({});
+
+    const SCANING               = -1;
+    const SCAN_DONE_NOT_FOUND   = 0;
+    const SCAN_DONE_FOUND_ERROR = 1;
+    const SCAN_DONE_FOUND_WORK  = 2;
+    let clean = false;
+    const scanStatusUpdate = (id, function_code, status) => {
+        const newScanResult = { ...scanResult };
+        if (typeof newScanResult[id] === "undefined") {
+            newScanResult[id] = {};
+        }
+        newScanResult[id][function_code] = status;
+        console.log(newScanResult);
+        setScanResult(newScanResult);
+    }
+
     const handleClickStartScan = async () => {
+        const scanStauts = {};
+        setScanResult(scanStauts);
+        await (new Promise((resolve => setTimeout(resolve, 10))));
         setScaning(true);
 
         const writer = serialPort.writable.getWriter();
+        // const reader = serialPort.readable.getReader();
+        /*if (!serialPort.readable.locked) {
+            serialPort.readable.pipeTo(new WritableStream({
+                write(chunk) {
+                    /*
+                    for (let key of chunk) {
+                            term.write(String.fromCharCode(key));
+                            serialLastData += String.fromCharCode(key);
+                        }*/
+                    /*console.log("IN", chunk);
+                }
+            }));
+        }*/
+        
+        
 
         const id_arr = getIdRangeArray(idScanRange);
         const function_code_arr = functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => a.code);
         for (const id of id_arr) {
+            scanStauts[id] = {};
+            setScanResult(JSON.parse(JSON.stringify(scanStauts)));
             for (const function_code of function_code_arr) {
-                await (new Promise((resolve, reject) => {
-                    setTimeout(resolve, timeoutMS);
-                }));
+                scanStauts[id][function_code] = SCANING;
+                setScanResult(JSON.parse(JSON.stringify(scanStauts)));
 
                 const data = new Uint8Array([
                     id, // Devices Address
@@ -141,8 +178,73 @@ export default function ModbusScaner({ serialPort }) {
                 const crc = crc16(data, data.length - 2);
                 data[data.length - 2] = crc & 0xFF;
                 data[data.length - 1] = (crc >> 8) & 0xFF;
-                await writer.write(data);
+                writer.write(data);
                 console.log(`ID: ${id}, Function: ${function_code}, Data: ${data}`);
+                
+                // Read back
+                const deviceIdFocus = id;
+                const functionCodeFocus = function_code;
+                const reader = serialPort.readable.getReader();
+                try {
+                    const found = await (new Promise(async (resolve, reject) => {
+                        setTimeout(() => {
+                            reader.cancel();
+                        }, timeoutMS);
+                        
+                        let foundDeviceCode = 0; // 0: Not Reply    1: Reply error     2: Reply data
+                        let state = 0;
+                        while(1) {
+                            const { value, done } = await reader.read();
+                            if (value) {
+                                for (const data of value) {
+                                    if (state == 0) {
+                                        if (data === deviceIdFocus) {
+                                            state = 1;
+                                        }
+                                    } else if (state == 1) {
+                                        if (data === functionCodeFocus) {
+                                            foundDeviceCode = 2;
+                                        } else {
+                                            foundDeviceCode = 1;
+                                        }
+                                        state = 2;
+                                    } else if (state == 2) {
+                                        reader.cancel();
+                                        state = 3;
+                                    } else if (state == 3) {
+                                        // Not do things
+                                    }
+                                }
+                            }
+                            if (done) {
+                                console.log("Done !");
+                                resolve(foundDeviceCode);
+                                break;
+                            }
+                        }
+                    }));
+                    if (found === 0) {
+                        console.log(`ID: ${deviceIdFocus} device not reply`);
+                        // scanStatusUpdate(id, function_code, SCAN_DONE_NOT_FOUND);
+                        scanStauts[id][function_code] = SCAN_DONE_NOT_FOUND;
+                    } else if (found === 1) {
+                        console.log(`ID: ${deviceIdFocus} found but function return error !`);
+                        // scanStatusUpdate(id, function_code, SCAN_DONE_FOUND_ERROR);
+                        scanStauts[id][function_code] = SCAN_DONE_FOUND_ERROR;
+                    } else if (found === 2) {
+                        console.log(`ID: ${deviceIdFocus} found and function work !`);
+                        // scanStatusUpdate(id, function_code, SCAN_DONE_FOUND_WORK);
+                        scanStauts[id][function_code] = SCAN_DONE_FOUND_WORK;
+                    }
+                    setScanResult(JSON.parse(JSON.stringify(scanStauts)));
+                } catch(e) {
+                    console.log(e);
+                } finally {
+                    if (serialPort.readable.lock) {
+                        await reader.releaseLock();
+                    }
+                }
+                await (new Promise((resolve => setTimeout(resolve, 100))))
             }
         }
         writer.releaseLock();
@@ -220,7 +322,7 @@ export default function ModbusScaner({ serialPort }) {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell align="center">ID</TableCell>
-                                        {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => <TableCell align="center">{a.label}</TableCell>)}
+                                        {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => <TableCell align="center" key={a.code}>{a.label}</TableCell>)}
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -230,11 +332,24 @@ export default function ModbusScaner({ serialPort }) {
                                             sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                                         >
                                             <TableCell align="center" component="th" scope="row">{id}</TableCell>
-                                            {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => 
-                                            <TableCell align="center">
+                                            {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(({ code }) => 
+                                            <TableCell key={code} align="center">
                                                 {(() => {
+                                                    if (typeof scanResult?.[id]?.[code] !== "undefined") {
+                                                        const status = scanResult?.[id]?.[code];
+                                                        if (status === SCANING) {
+                                                            return <CircularProgress size="16" />
+                                                        } else if (status === SCAN_DONE_NOT_FOUND) {
+                                                            return <CancelRoundedIcon sx={{ color: "#E74C3C" }} />;
+                                                        } else if (status === SCAN_DONE_FOUND_ERROR) {
+                                                            return <DoDisturbOnRoundedIcon sx={{ color: "#F1C40F" }} />;
+                                                        } else if (status === SCAN_DONE_FOUND_WORK) {
+                                                            return <CheckCircleRoundedIcon sx={{ color: "#2ECC71" }} />;
+                                                        }
+                                                    }
 
-                                                })(a)}
+                                                    return "";
+                                                })()}
                                             </TableCell>)}
                                         </TableRow>
                                     ))}

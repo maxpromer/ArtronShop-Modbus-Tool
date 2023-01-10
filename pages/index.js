@@ -149,7 +149,7 @@ export default function Home() {
 									{[ 
 										2400, 4800, 9600, 19200, 38400, 57600, 115200 
 									].map(
-										baud => <MenuItem onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
+										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
 									)}
 								</Menu>
 								<div>Parity: <span onClick={handleOpenSelectParity}>{serialConfigs.parity}</span></div>
@@ -161,7 +161,7 @@ export default function Home() {
 									{[ 
 										"None", "Even", "Odd"
 									].map(
-										parity => <MenuItem onClick={handleSelectParity(parity)}>{parity}</MenuItem>
+										parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
 									)}
 								</Menu>
 								<div>Data bits: <span>{serialConfigs.data_bits}</span></div>
@@ -174,7 +174,7 @@ export default function Home() {
 									{[ 
 										1, 2
 									].map(
-										stop_bit => <MenuItem onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
+										stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
 									)}
 								</Menu>
 							</div>
