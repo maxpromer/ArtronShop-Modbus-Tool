@@ -338,7 +338,7 @@ export default function ModbusScaner({ serialPort }) {
                                                     if (typeof scanResult?.[id]?.[code] !== "undefined") {
                                                         const status = scanResult?.[id]?.[code];
                                                         if (status === SCANING) {
-                                                            return <CircularProgress size="16" />
+                                                            return <CircularProgress size={20}/>;
                                                         } else if (status === SCAN_DONE_NOT_FOUND) {
                                                             return <CancelRoundedIcon sx={{ color: "#E74C3C" }} />;
                                                         } else if (status === SCAN_DONE_FOUND_ERROR) {
