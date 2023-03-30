@@ -17,11 +17,54 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import LoadingButton from '@mui/lab/LoadingButton';
+import Container from '@mui/material/Container';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
+import Grid from '@mui/material/Grid';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import StopIcon from '@mui/icons-material/Stop';
+import SsidChartIcon from '@mui/icons-material/SsidChart';
+import SettingsIcon from '@mui/icons-material/Settings';
 
-import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import Co2Icon from '@mui/icons-material/Co2';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
+import OpacityIcon from '@mui/icons-material/Opacity';
 
-import styles from '../../styles/ModbusScaner.module.scss';
+import ATS_CO2_SVG from "../ATS_CO2_SVG";
+
+const BoxSensorValue = ({ icon, label, value, uint, ...props }) => <Box sx={{
+    borderRadius: 4,
+    padding: 1,
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    border: "2px solid #ECF0F1",
+    ...props.sx,
+}}>
+    {icon}
+    <div style={{
+       display: "flex",
+       flexDirection: "column", 
+    }}>
+        <div>
+            <span style={{
+                fontSize: 24,
+                color: "#2C3E50"
+            }}>{value}</span>
+            <span style={{
+                fontSize: 12,
+                color: "#2C3E50"
+            }}>{uint}</span>
+        </div>
+        <div style={{ 
+            color: "#808B96",
+            marginTop: -5,
+            fontSize: 14
+        }}>{label}</div>
+    </div>
+</Box>;
 
 function crc16(buffer, length) {
     var crc = 0xFFFF;
@@ -43,136 +86,110 @@ function crc16(buffer, length) {
 };
 
 export default function ATSCO2Test({ serialPort }) {
-	
-    const handleClickStartScan = async () => {
-        setScaning(true);
+    const [ readValue, setReadValue ] = React.useState(false);
+    const [ deviceId, setDeviceId ] = React.useState(1);
 
-        const writer = serialPort.writable.getWriter();
+    const handleDeviceIdChange = e => setDeviceId(e.target.value);
 
-        const id_arr = getIdRangeArray(idScanRange);
-        const function_code_arr = functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => a.code);
-        for (const id of id_arr) {
-            for (const function_code of function_code_arr) {
-                await (new Promise((resolve, reject) => {
-                    setTimeout(resolve, timeoutMS);
-                }));
-
-                const data = new Uint8Array([
-                    id, // Devices Address
-                    function_code, // Function code
-                    0x00, // Start Address HIGH
-                    0x01, // Start Address LOW
-                    0x00, // Quantity HIGH
-                    0x01, // Quantity LOW
-                    0x00, // CRC LOW
-                    0x00  // CRC HIGH
-                ]);
-                const crc = crc16(data, data.length - 2);
-                data[data.length - 2] = crc & 0xFF;
-                data[data.length - 1] = (crc >> 8) & 0xFF;
-                await writer.write(data);
-                console.log(`ID: ${id}, Function: ${function_code}, Data: ${data}`);
-            }
-        }
-        writer.releaseLock();
-
-        setScaning(false);
+    const handleClickStartReadValue = () => {
+        setReadValue(true);
     }
+
+    React.useEffect(() => {
+        if (readValue) {
+
+        }
+
+        return () => {
+
+        }
+    }, [ readValue ]);
+
+    const [ tabSelect, setTabSelect ] = React.useState(0);
+    const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
 
 	return (
 		<>
-            <div className={[ styles.content_box, !serialPort && styles.content_disable ].join(" ")}>
-                <div>
-                    <div>
-                        <h3>ตั้งค่าการสแกน</h3>
-                        <TextField
-                            label="ช่วงหมายเลขสแกน"
-                            value={idScanRange}
-                            onChange={handleChangeidScanRangeInput}
-                            size="small"
-                            fullWidth
-                            sx={{ mb: 2 }}
-                            InputLabelProps={{
-                                shrink: true,
-                            }}
-                        />
-                        <FormControl sx={{ mb: 2, width: "100%" }}>
-                            <InputLabel id="demo-multiple-checkbox-label">Function</InputLabel>
-                            <Select
-                                labelId="demo-multiple-checkbox-label"
-                                multiple
-                                value={functionCodeSelect}
-                                onChange={handleChange}
-                                size="small"
-                                input={
-                                    <OutlinedInput
-                                        label="Function"
-                                        size="small"
-                                        InputLabelProps={{
-                                            shrink: true,
-                                        }}
-                                    />
-                                }
-                                renderValue={(selected) => functionCode.filter(a => selected.indexOf(a.code) > -1).map(a => a.label).join(', ')}
-                            >
-                                {functionCode.map(item => (
-                                    <MenuItem key={item.code} value={item.code}>
-                                        <Checkbox checked={functionCodeSelect.indexOf(item.code) > -1} />
-                                        <ListItemText primary={item.label} />
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <TextField
-                            label="Timeout (ms)"
-                            helperText={`ใช้เวลาสแกน ${Math.round(((timeoutMS / 1000) * scanRows.length) / 60)} นาที ${Math.round(((timeoutMS / 1000) * scanRows.length) % 60)} วินาที`}
-                            value={timeoutMS}
-                            onChange={handleChangeTimeoutInput}
-                            size="small"
-                            type="number"
-                            InputProps={{
-                                min: 100,
-                            }}
-                            InputLabelProps={{
-                                shrink: true,
-                            }}
-                            fullWidth
-                            sx={{ mb: 2 }}
-                        />
-                        <LoadingButton variant="contained" color="primary" onClick={handleClickStartScan} loading={scaning} disableElevation>เริ่มสแกน</LoadingButton>
-                    </div>
-                </div>
-                <div>
-                    <div>
-                        <TableContainer>
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell align="center">ID</TableCell>
-                                        {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => <TableCell align="center">{a.label}</TableCell>)}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {scanRows.map(id => (
-                                        <TableRow
-                                            key={id}
-                                            sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                                        >
-                                            <TableCell align="center" component="th" scope="row">{id}</TableCell>
-                                            {functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => 
-                                            <TableCell align="center">
-                                                {(() => {
-
-                                                })(a)}
-                                            </TableCell>)}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </div>
-                </div>
-            </div>
+            <Container maxWidth="lg">
+                <Box pt={4}>
+                    <Grid container spacing={2}>
+                        <Grid item md={3}>
+                            <ATS_CO2_SVG 
+                                style={{
+                                    display: "block",
+                                    width: "100%",
+                                    height: 400
+                                }}
+                            />
+                            <Paper sx={{ 
+                                p: 3,
+                                mt: 2,
+                                display: "flex",
+                                flexDirection: "row"
+                            }}>
+                                <TextField 
+                                    variant="outlined"
+                                    label="Modbus ID *"
+                                    size={"small"}
+                                    type="number"
+                                    min={1}
+                                    max={255}
+                                    placeholder={"1 - 255"}
+                                    value={deviceId}
+                                    onChange={handleDeviceIdChange}
+                                    sx={{
+                                        flexGrow: 1,
+                                        mr: 1
+                                    }}
+                                />
+                                {!readValue && <Button variant="contained" color="primary" onClick={() => true} disableElevation><PlayArrowIcon /></Button>}
+								{readValue && <Button variant="contained" color="secondary" onClick={() => true} disableElevation><StopIcon /></Button>}
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={9}>
+                            <Paper>
+                                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                                    <Tabs value={tabSelect} onChange={handleChangeTabSelect} centered>
+                                        <Tab label="อ่านค่า" icon={<SsidChartIcon />} />
+                                        <Tab label="ตั้งค่า" icon={<SettingsIcon />} />
+                                    </Tabs>
+                                </Box>
+                                {tabSelect === 0 && <Box p={2}>
+                                    <Grid container spacing={2} justifyContent="space-around">
+                                        {[
+                                            {
+                                                icon: <Co2Icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
+                                                label: "CO2",
+                                                value: "\u00A0",
+                                                uint: "ppm"
+                                            },
+                                            {
+                                                icon: <ThermostatIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
+                                                label: "อุณหภูมิ",
+                                                value: "\u00A0",
+                                                uint: "°C"
+                                            },
+                                            {
+                                                icon: <OpacityIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
+                                                label: "ความชื้น",
+                                                value: "\u00A0",
+                                                uint: "%RH"
+                                            },
+                                        ].map((a, index) => <Grid key={index} item md={4} sx={{ display: "flex", justifyContent: "center" }}>
+                                            <BoxSensorValue
+                                                {...a}
+                                                sx={{
+                                                    width: 160
+                                                }}
+                                            />
+                                        </Grid>)}
+                                    </Grid>
+                                </Box>}
+                            </Paper>
+                        </Grid>
+                    </Grid>
+                </Box>
+            </Container>
 		</>
 	)
 }
