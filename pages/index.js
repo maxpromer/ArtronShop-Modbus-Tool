@@ -8,8 +8,10 @@ import Button from '@mui/material/Button';
 import styles from '../styles/Index.module.scss'
 
 import SearchIcon from '@mui/icons-material/Search';
+import ATS_CO2_SVG from "../src/ATS_CO2_SVG";
 
 import ModbusScaner from '../src/pages/ModbusScaner';
+import ATSCO2Test from '../src/pages/ATSCO2Test';
 
 export default function Home() {
 	const [ selectTool, setSelectTool ] = React.useState(null);
@@ -124,17 +126,28 @@ export default function Home() {
 					{selectTool == null && <div className={styles.tool_select_box}>
 						<Typography variant="h1" component="h2" sx={{ mb: 1 }}>เลือกเครื่องมือที่ต้องการใช้งาน</Typography>
 						<ul className={styles.tool_select_item_box}>
-							<li>
-								<div onClick={handleSelectTool("scan")}>
+							{[
+								{
+									key: "scan",
+									icon: <SearchIcon sx={{ fontSize: 100 }} />,
+									title: "ค้นหา",
+									description: "สแกนหาหมายเลขอุปกรณ์ Modbus RTU ที่ต่อบนบัสทั้งหมด"
+								},
+								{
+									key: "ats-co2",
+									icon: <ATS_CO2_SVG style={{ maxHeight: 100, width: 100  }} />,
+									title: "ATS-CO2",
+									description: "อ่านค่า CO2 อุณหภูมิ ความชื้นอากาศ "
+								},
+							].map(a => <li key={a.key}>
+								<div onClick={handleSelectTool(a.key)}>
+									<div>{a.icon}</div>
 									<div>
-										<SearchIcon sx={{ fontSize: 100 }} />
-									</div>
-									<div>
-										<Typography variant="h3" component="h3">ค้นหา</Typography>
-										<Typography variant="subtitle1">สแกนหาหมายเลขอุปกรณ์ Modbus RTU ที่ต่อบนบัสทั้งหมด</Typography>
+										<Typography variant="h3" component="h3">{a.title}</Typography>
+										<Typography variant="subtitle1">{a.description}</Typography>
 									</div>
 								</div>
-							</li>
+							</li>)}
 						</ul>
 					</div>}
 					{selectTool != null && <>
@@ -183,7 +196,10 @@ export default function Home() {
 								{serialPort && <Button variant="contained" color="secondary" onClick={handleClickDisconnect} disableElevation>ยกเลิกเชื่อมต่อ</Button>}
 							</div>
 						</div>
-						<ModbusScaner serialPort={serialPort} />
+						{{
+							"scan": <ModbusScaner serialPort={serialPort} />,
+							"ats-co2": <ATSCO2Test serialPort={serialPort} />
+						}[selectTool]}
 					</>}
 				</section>
 				<footer>พัฒนาโดย <a href="https://www.artronshop.co.th" target="_blank">บริษัท อาร์ทรอน ชอป จำกัด</a> | ให้บริการวิจัยและพัฒนาอุปกรณ์อิเล็กทรอนิกส์อัจฉริยะ</footer>
