@@ -60,7 +60,8 @@ const theme = createTheme({
     MuiPopover: {
       styleOverrides: {
         paper: {
-          boxShadow: "0 5px 20px rgb(0 0 0 / 17%)"
+          boxShadow: "0 5px 20px rgb(0 0 0 / 17%)",
+          borderRadius: 20,
         }
       }
     }

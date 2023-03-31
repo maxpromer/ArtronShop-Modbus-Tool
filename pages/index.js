@@ -4,6 +4,9 @@ import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Popover from '@mui/material/Popover';
+import TextField from '@mui/material/TextField';
+import Box from '@mui/material/Box';
 
 import styles from '../styles/Index.module.scss'
 
@@ -48,11 +51,32 @@ export default function Home() {
 	const handleCloseParitySelect = () => {
 		setParityEl(null);
 	};
+
 	const handleSelectParity = parity => () => {
 		const newSerialConfigs = { ...serialConfigs };
 		newSerialConfigs.parity = parity;
 		setSerialConfigs(newSerialConfigs);
 		handleCloseParitySelect();
+	};
+
+	const [ idEl, setIdEl ] = React.useState(null);
+	const handleOpenSelectID = e => {
+		setIdEl(e.currentTarget);
+	};
+	const handleCloseIdSelect = () => {
+		setIdEl(null);
+	};
+
+	const [ modbusId, setModbusId ] = React.useState(1);
+	const handleChangetId = e => {
+		let id = +e.target.value;
+		if (id < 1) {
+			id = 1;
+		}
+		if (id > 127) {
+			id = 127;
+		}
+		setModbusId(id);
 	};
 
 	const [ stopBitEl, setStopBitEl ] = React.useState(null);
@@ -159,37 +183,64 @@ export default function Home() {
 									open={Boolean(baudrateEl)}
 									onClose={handleCloseBaudrateSelect}
 								>
-									{[ 
-										2400, 4800, 9600, 19200, 38400, 57600, 115200 
-									].map(
+									{(selectTool === "ats-co2" ? [ 9600, 14400, 19200 ] :
+									[ 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200 ]
+									).map(
 										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
 									)}
 								</Menu>
-								<div>Parity: <span onClick={handleOpenSelectParity}>{serialConfigs.parity}</span></div>
-								<Menu
-									anchorEl={parityEl}
-									open={Boolean(parityEl)}
-									onClose={handleCloseParitySelect}
-								>
-									{[ 
-										"None", "Even", "Odd"
-									].map(
-										parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
-									)}
-								</Menu>
-								<div>Data bits: <span>{serialConfigs.data_bits}</span></div>
-								<div>Stop bit: <span onClick={handleOpenSelectStopBit}>{serialConfigs.stop_bit}</span></div>
-								<Menu
-									anchorEl={stopBitEl}
-									open={Boolean(stopBitEl)}
-									onClose={handleCloseStopBitSelect}
-								>
-									{[ 
-										1, 2
-									].map(
-										stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
-									)}
-								</Menu>
+								{selectTool !== "ats-co2" && <>
+									<div>Parity: <span onClick={handleOpenSelectParity}>{serialConfigs.parity}</span></div>
+									<Menu
+										anchorEl={parityEl}
+										open={Boolean(parityEl)}
+										onClose={handleCloseParitySelect}
+									>
+										{[ 
+											"None", "Even", "Odd"
+										].map(
+											parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
+										)}
+									</Menu>
+									<div>Data bits: <span>{serialConfigs.data_bits}</span></div>
+									<div>Stop bit: <span onClick={handleOpenSelectStopBit}>{serialConfigs.stop_bit}</span></div>
+									<Menu
+										anchorEl={stopBitEl}
+										open={Boolean(stopBitEl)}
+										onClose={handleCloseStopBitSelect}
+									>
+										{[ 
+											1, 2
+										].map(
+											stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
+										)}
+									</Menu>
+								</>}
+								{selectTool === "ats-co2" && <>
+									<div>Modbus ID: <span onClick={handleOpenSelectID}>{modbusId}</span></div>
+									<Popover
+										open={Boolean(idEl)}
+										anchorEl={idEl}
+										onClose={handleCloseIdSelect}
+										anchorOrigin={{
+											vertical: 'bottom',
+											horizontal: 'left',
+										}}
+										sx={{
+											borderRadius: 10
+										}}
+									>
+										<Box p={2}>
+											<TextField 
+												variant="outlined"
+												size="small"
+												value={modbusId}
+												onChange={handleChangetId}
+												sx={{ width: 60 }}
+											/>
+										</Box>
+									</Popover>
+								</>}
 							</div>
 							<div>
 								{!serialPort && <Button variant="contained" color="primary" onClick={handleClickConnect} disableElevation>เชื่อมต่อ</Button>}

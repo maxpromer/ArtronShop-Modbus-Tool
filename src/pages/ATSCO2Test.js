@@ -34,9 +34,35 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 
 import ATS_CO2_SVG from "../ATS_CO2_SVG";
 
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    TimeScale,
+} from 'chart.js'
+import { Line } from 'react-chartjs-2';
+import 'chartjs-adapter-moment';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    TimeScale
+)
+
 const BoxSensorValue = ({ icon, label, value, uint, ...props }) => <Box sx={{
     borderRadius: 4,
-    padding: 1,
+    px: 2,
+    py: 1,
     display: "flex",
     flexDirection: "row",
     alignItems: "center",
@@ -47,6 +73,8 @@ const BoxSensorValue = ({ icon, label, value, uint, ...props }) => <Box sx={{
     <div style={{
        display: "flex",
        flexDirection: "column", 
+       textAlign: "right",
+       flexGrow: 1
     }}>
         <div>
             <span style={{
@@ -166,7 +194,7 @@ export default function ATSCO2Test({ serialPort }) {
                                             {
                                                 icon: <ThermostatIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                                 label: "อุณหภูมิ",
-                                                value: "\u00A0",
+                                                value: "12.1" || "\u00A0",
                                                 uint: "°C"
                                             },
                                             {
@@ -184,6 +212,66 @@ export default function ATSCO2Test({ serialPort }) {
                                             />
                                         </Grid>)}
                                     </Grid>
+                                    <Box sx={{ mt: 2 }}>
+                                        <Line
+                                            options={{
+                                                responsive: true,
+                                                interaction: {
+                                                    intersect: false,
+                                                },
+                                                locale: "th",
+                                                scales: {
+                                                    x: {
+                                                        type: 'time',
+                                                        time: {
+                                                            tooltipFormat: 'DD/MM/YYYY',
+                                                            unit: 'day'
+                                                        },
+                                                        title: {
+                                                            display: false,
+                                                        },
+                                                        adapters: {
+                                                            date: {
+                                                                locale: "th"
+                                                            }
+                                                        },
+                                                    },
+                                                    y: {
+                                                        display: false,
+                                                    },
+                                                }
+                                            }}
+                                            data={{
+                                                labels: [],
+                                                datasets: [
+                                                    {
+                                                        label: 'CO2 (ppm)',
+                                                        data: [ ],
+                                                        fill: false,
+                                                        tension: 0.4,
+                                                        borderColor: "#2ECC71",
+                                                        backgroundColor: "#2ECC71",
+                                                    },
+                                                    {
+                                                        label: 'อุณหภูมิ (°C)',
+                                                        data: [ ],
+                                                        fill: false,
+                                                        tension: 0.4,
+                                                        borderColor: "#F1C40F",
+                                                        backgroundColor: "#F1C40F",
+                                                    },
+                                                    {
+                                                        label: 'ความชื้น (%RH)',
+                                                        data: [ ],
+                                                        fill: false,
+                                                        tension: 0.4,
+                                                        borderColor: "#3498DB",
+                                                        backgroundColor: "#3498DB",
+                                                    },
+                                                ]
+                                            }}
+                                        />
+                                    </Box>
                                 </Box>}
                             </Paper>
                         </Grid>
