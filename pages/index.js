@@ -46,7 +46,7 @@ export default function Home() {
 
 	const [ parityEl, setParityEl ] = React.useState(null);
 	const handleOpenSelectParity = e => {
-		setParityEl(e.currentTarget);
+		selectTool !== "ats-co2" && setParityEl(e.currentTarget);
 	};
 	const handleCloseParitySelect = () => {
 		setParityEl(null);
@@ -81,7 +81,7 @@ export default function Home() {
 
 	const [ stopBitEl, setStopBitEl ] = React.useState(null);
 	const handleOpenSelectStopBit = e => {
-		setStopBitEl(e.currentTarget);
+		selectTool !== "ats-co2" && setStopBitEl(e.currentTarget);
 	};
 	const handleCloseStopBitSelect = () => {
 		setStopBitEl(null);
@@ -189,33 +189,31 @@ export default function Home() {
 										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
 									)}
 								</Menu>
-								{selectTool !== "ats-co2" && <>
-									<div>Parity: <span onClick={handleOpenSelectParity}>{serialConfigs.parity}</span></div>
-									<Menu
-										anchorEl={parityEl}
-										open={Boolean(parityEl)}
-										onClose={handleCloseParitySelect}
-									>
-										{[ 
-											"None", "Even", "Odd"
-										].map(
-											parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
-										)}
-									</Menu>
-									<div>Data bits: <span>{serialConfigs.data_bits}</span></div>
-									<div>Stop bit: <span onClick={handleOpenSelectStopBit}>{serialConfigs.stop_bit}</span></div>
-									<Menu
-										anchorEl={stopBitEl}
-										open={Boolean(stopBitEl)}
-										onClose={handleCloseStopBitSelect}
-									>
-										{[ 
-											1, 2
-										].map(
-											stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
-										)}
-									</Menu>
-								</>}
+								<div>Parity: <span onClick={handleOpenSelectParity}>{serialConfigs.parity}</span></div>
+								<Menu
+									anchorEl={parityEl}
+									open={Boolean(parityEl)}
+									onClose={handleCloseParitySelect}
+								>
+									{[
+										"None", "Even", "Odd"
+									].map(
+										parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
+									)}
+								</Menu>
+								<div>Data bits: <span>{serialConfigs.data_bits}</span></div>
+								<div>Stop bit: <span onClick={handleOpenSelectStopBit}>{serialConfigs.stop_bit}</span></div>
+								<Menu
+									anchorEl={stopBitEl}
+									open={Boolean(stopBitEl)}
+									onClose={handleCloseStopBitSelect}
+								>
+									{[
+										1, 2
+									].map(
+										stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
+									)}
+								</Menu>
 								{selectTool === "ats-co2" && <>
 									<div>Modbus ID: <span onClick={handleOpenSelectID}>{modbusId}</span></div>
 									<Popover

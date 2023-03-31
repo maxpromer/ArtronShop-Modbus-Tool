@@ -115,24 +115,165 @@ function crc16(buffer, length) {
 };
 
 export default function ATSCO2Test({ serialPort, modbusId }) {
-    const [ readValue, setReadValue ] = React.useState(false);
+    const [ tabSelect, setTabSelect ] = React.useState(0);
+    const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
 
-    const handleClickStartReadValue = () => {
-        setReadValue(true);
+    const [ sensorValue, setSensorValue ] = React.useState([ ]);
+    const [ sensorConfigs, setSensorConfigs ] = React.useState({
+        id: 1,
+        baud_rate: 0,
+        temp_correction: 0,
+        humi_correction: 0,
+        co2_correction: 0
+    });
+
+    const handleChangeSensorConfigs = key => (e) => {
+        setSensorConfigs({ ...sensorConfigs, [key]: e.target.value });
+    }
+
+    const ModbusReadRegister = async (id, function_code, start_address, quantity) => {
+        { // Master -> Slave
+            const data = new Uint8Array([
+                id,                          // Devices Address
+                function_code,               // Function code
+                (start_address >> 8) & 0xFF, // Start Address HIGH
+                start_address & 0xFF,        // Start Address LOW
+                (quantity >> 8) & 0xFF,      // Quantity HIGH
+                quantity & 0xFF,             // Quantity LOW
+                0x00,                        // CRC LOW
+                0x00                         // CRC HIGH
+            ]);
+            const crc = crc16(data, data.length - 2);
+            data[data.length - 2] = crc & 0xFF;
+            data[data.length - 1] = (crc >> 8) & 0xFF;
+
+            const writer = serialPort.writable.getWriter();
+            writer.write(data);
+            writer.releaseLock();
+        }
+
+        { // Master <- Slave
+            const recv_bytes = (2 * quantity);
+            const read_len = 1 + 1 + 1 + recv_bytes + 2; // ID, Function, Bytes Size, <Data>, <CRC *2>
+
+            const reader = serialPort.readable.getReader();
+            const data_recv = await (new Promise(async (resolve, reject) => {
+                let data = [];
+                setTimeout(() => {
+                    reader.cancel();
+                }, 1000); // wait max 2 sec
+
+                let state = 0;
+                while (1) {
+                    const { value, done } = await reader.read();
+                    if (value) {
+                        data = data.concat(value);
+                    }
+                    if (data.length >= read_len) {
+                        reader.cancel();
+                    }
+                    if (done) {
+                        resolve(data);
+                        break;
+                    }
+                }
+            }));
+            if (serialPort.readable.lock) {
+                await reader.releaseLock();
+            }
+
+            if (data_recv.length != read_len) {
+                throw "recv len invalid";
+            }
+
+            if (data_recv[0] != id) {
+                throw "recv id invalid";
+            }
+
+            if (data_recv[1] != function_code) {
+                throw "recv function code invalid";
+            }
+
+            if (data_recv[2] != recv_bytes) {
+                throw "recv data size invalid";
+            }
+
+            const crc = crc16(data_recv, data_recv.length - 2);
+            if ((data_recv[read_len - 2] != (crc & 0xFF)) || (data_recv[read_len - 2] != ((crc >> 8) & 0xFF))) {
+                throw "recv crc invalid";
+            }
+
+            const only_data = [];
+            for (let i=3;i<(read_len - 2);i++) {
+                only_data.push(data_recv[i]);
+            }
+            return only_data;
+        }
+
+        return null;
+    }
+
+    const read_sensor_value_polling = async () => {
+        try {
+            const data = await ModbusReadRegister(modbusId, 4, 0x0001, 3);
+
+            const temp = ((data[0] << 8) | data[1]) / 10.0;
+            const humi = ((data[2] << 8) | data[3]) / 10.0;
+            const co2 = (data[4] << 8 | data[5]);
+
+            setSensorValue([ ...sensorValue ].concat({
+                time: new Date(),
+                temp,
+                humi,
+                co2
+            }));
+        } catch(e) {
+            console.error(e);
+        }
+
+        window.read_timer = setTimeout(read_sensor_value_polling, 1000); // 1 sec
+    }
+
+    const read_settings_once = async () => {
+        try {
+            const data = await ModbusReadRegister(modbusId, 4, 0x0101, 5);
+
+            const id = ((data[0] << 8) | data[1]);
+            const baud_rate = ((data[2] << 8) | data[3]);
+            const temp_correction  = ((data[4] << 8) | data[5]) / 10.0;
+            const humi_correction  = ((data[6] << 8) | data[7]) / 10.0;
+            const co2_correction  = (data[8] << 8 | data[9]);
+
+            setSensorConfigs([ ...sensorValue ].concat({
+                id,
+                baud_rate,
+                temp_correction,
+                humi_correction,
+                co2_correction
+            }));
+        } catch(e) {
+            console.error(e);
+        }
     }
 
     React.useEffect(() => {
-        if (readValue) {
-
+        if (serialPort) {
+            if (tabSelect === 0) { // อ่านค่า
+                read_sensor_value_polling();
+            } else if (tabSelect === 1) { // ตั้งค่า
+                read_settings_once();
+            }
         }
 
         return () => {
-
+            if (window.read_timer) {
+                clearTimeout(window.read_timer);
+                window.read_timer = null;
+            }
         }
-    }, [ readValue ]);
+    }, [ serialPort, tabSelect ]);
 
-    const [ tabSelect, setTabSelect ] = React.useState(0);
-    const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
+    
 
 	return (
 		<>
@@ -167,19 +308,19 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             {
                                                 icon: <Co2Icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                                 label: "CO2",
-                                                value: "\u00A0",
+                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].co2) || "\u00A0",
                                                 uint: "ppm"
                                             },
                                             {
                                                 icon: <ThermostatIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                                 label: "อุณหภูมิ",
-                                                value: "12.1" || "\u00A0",
+                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].temp.toFixed(1)) || "\u00A0",
                                                 uint: "°C"
                                             },
                                             {
                                                 icon: <OpacityIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                                 label: "ความชื้น",
-                                                value: "\u00A0",
+                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].humi.toFixed(1)) || "\u00A0",
                                                 uint: "%RH"
                                             },
                                         ].map((a, index) => <Grid key={index} item md={4} sx={{ display: "flex", justifyContent: "center" }}>
@@ -221,11 +362,11 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                 }
                                             }}
                                             data={{
-                                                labels: [],
+                                                labels: sensorValue.map(a => a.time),
                                                 datasets: [
                                                     {
                                                         label: 'CO2 (ppm)',
-                                                        data: [ ],
+                                                        data: sensorValue.map(a => a.co2),
                                                         fill: false,
                                                         tension: 0.4,
                                                         borderColor: "#2ECC71",
@@ -233,7 +374,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                     },
                                                     {
                                                         label: 'อุณหภูมิ (°C)',
-                                                        data: [ ],
+                                                        data: sensorValue.map(a => a.temp),
                                                         fill: false,
                                                         tension: 0.4,
                                                         borderColor: "#F1C40F",
@@ -241,7 +382,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                     },
                                                     {
                                                         label: 'ความชื้น (%RH)',
-                                                        data: [ ],
+                                                        data: sensorValue.map(a => a.humi),
                                                         fill: false,
                                                         tension: 0.4,
                                                         borderColor: "#3498DB",
@@ -255,6 +396,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                 {tabSelect === 1 && <Box p={3}>
                                     {[
                                         {
+                                            key: "id",
                                             label: "หมายเลขอุปกรณ์ (Modbus ID)",
                                             type: "number",
                                             props: {
@@ -263,11 +405,13 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             }
                                         },
                                         {
+                                            key: "baud_rate",
                                             label: "ความเร็วการสื่อสาร (Baud rate)",
                                             type: "option",
                                             option: [ 9600, 14400, 19200 ]
                                         },
                                         {
+                                            key: "temp_correction",
                                             label: "ปรับแต่งอุณหภูมิ (°C)",
                                             type: "number",
                                             isFloat: true,
@@ -277,6 +421,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             }
                                         },
                                         {
+                                            key: "humi_correction",
                                             label: "ปรับแต่งความชื้น (%RH)",
                                             type: "number",
                                             isFloat: true,
@@ -286,6 +431,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             }
                                         },
                                         {
+                                            key: "co2_correction",
                                             label: "ปรับแต่ง CO2 (ppm)",
                                             type: "number",
                                             isFloat: true,
@@ -304,14 +450,18 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             type="number"
                                             size="small"
                                             sx={{ width: 80 }}
+                                            value={sensorConfigs[a.key]}
+                                            onChange={handleChangeSensorConfigs(a.key)}
                                             {...a.props}
                                         />}
                                         {a.type === "option" && <Select
                                             size="small"
                                             sx={{ width: 100 }}
+                                            value={sensorConfigs[a.key]}
+                                            onChange={handleChangeSensorConfigs(a.key)}
                                             {...a.props}
                                         >
-                                            {a.option.map((a, index) => <MenuItem key={index} value={a}>{a}</MenuItem>)}
+                                            {a.option.map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
                                         </Select>}
                                     </Box>)}
                                     <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
