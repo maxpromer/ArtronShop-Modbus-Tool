@@ -49,6 +49,8 @@ import {
 import { Line } from 'react-chartjs-2';
 import 'chartjs-adapter-moment';
 
+import useStateWithRef from 'react-usestateref'
+
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -126,10 +128,30 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
         humi_correction: 0,
         co2_correction: 0
     });
+    const [ logs, setLogs, logsRef ] = useStateWithRef([ ]);
+
+    const [
+        LOG_OK,
+        LOG_SUCCESS,
+        LOG_ERROR,
+    ] = [ 0, 1, 2 ];
+
+    const logsBoxRef = React.useRef(null);
+
+    const addLog = (text, code = 0) => {
+        setLogs([ ...logsRef.current ].concat({ code, text }));
+        // console.log(logsBoxRef.current);
+        setTimeout(() => {
+            logsBoxRef.current.scrollTop = logsBoxRef.current?.scrollHeight || 0;
+        }, 100);
+    }
 
     const handleChangeSensorConfigs = key => (e) => {
         setSensorConfigs({ ...sensorConfigs, [key]: e.target.value });
     }
+
+    const hex = data => Array.from(data).map(a => a.toString(16)).map(a => a.length === 1 ? ("0" + a) : a).join(" ").toUpperCase();
+
 
     const ModbusReadRegister = async (id, function_code, start_address, quantity) => {
         { // Master -> Slave
@@ -148,38 +170,54 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
             data[data.length - 1] = (crc >> 8) & 0xFF;
 
             const writer = serialPort.writable.getWriter();
-            writer.write(data);
+            await writer.write(data);
             writer.releaseLock();
+            addLog("<| " + hex(data), LOG_OK);
         }
 
         { // Master <- Slave
             const recv_bytes = (2 * quantity);
             const read_len = 1 + 1 + 1 + recv_bytes + 2; // ID, Function, Bytes Size, <Data>, <CRC *2>
 
-            const reader = serialPort.readable.getReader();
-            const data_recv = await (new Promise(async (resolve, reject) => {
-                let data = [];
-                setTimeout(() => {
-                    reader.cancel();
-                }, 1000); // wait max 2 sec
+            let data_recv = [];
+            try {
+                const loop_read = new Promise(async (resolve, reject) => {
+                    let data = [];
+                    const reader = serialPort.readable.getReader();
 
-                let state = 0;
-                while (1) {
-                    const { value, done } = await reader.read();
-                    if (value) {
-                        data = data.concat(value);
+                    const timer = setTimeout(() => {
+                        if (serialPort.readable.locked) {
+                            reader.cancel();
+                        }
+                    }, 1000); // wait max 2 sec
+
+                    try {
+                        while (1) {
+                            const { value, done } = await reader.read();
+                            if (value) {
+                                data = data.concat(value);
+                            }
+                            if (data.length >= read_len) {
+                                await reader.cancel();
+                            }
+                            if (done) {
+                                clearTimeout(timer);
+                                resolve(data);
+                                break;
+                            }
+                        }
+                    } catch(e) {
+                        reject(e);
+                    } finally {
+                        reader.releaseLock();
                     }
-                    if (data.length >= read_len) {
-                        reader.cancel();
-                    }
-                    if (done) {
-                        resolve(data);
-                        break;
-                    }
-                }
-            }));
-            if (serialPort.readable.lock) {
-                await reader.releaseLock();
+                });
+                data_recv = await loop_read;
+            } catch(e) {
+                console.error("serial port error", e);
+            }
+            if (data_recv.length > 0) {
+                addLog(">| " + hex(data_recv), LOG_OK);
             }
 
             if (data_recv.length != read_len) {
@@ -288,10 +326,17 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                     height: 400
                                 }}
                             />
-                            <Box>
-                                <Paper p={1}>
-
-                                </Paper>
+                            <Box mt={2}>
+                                <Box sx={{ 
+                                    background: "#1C2833", 
+                                    height: 160, 
+                                    fontSize: 10, 
+                                    p: 2,
+                                    overflowY: "auto",
+                                    fontFamily: '"Lucida Console", "Courier New", monospace'
+                                }} ref={logsBoxRef}>
+                                    {logs.map((line, index) => <Box key={index} sx={{ color: ([ "#FFF", "#0F0", "#F00" ])[line.code] }}>{line.text}</Box>)}
+                                </Box>
                             </Box>
                         </Grid>
                         <Grid item xs={9}>
