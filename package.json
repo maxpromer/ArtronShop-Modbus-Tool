@@ -20,7 +20,8 @@
     "next": "13.1.1",
     "react": "18.2.0",
     "react-chartjs-2": "^5.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "xterm-for-react": "^1.0.4"
   },
   "devDependencies": {
     "sass": "^1.57.1"

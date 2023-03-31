@@ -23,6 +23,7 @@ import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import SsidChartIcon from '@mui/icons-material/SsidChart';
@@ -113,11 +114,8 @@ function crc16(buffer, length) {
     return crc;
 };
 
-export default function ATSCO2Test({ serialPort }) {
+export default function ATSCO2Test({ serialPort, modbusId }) {
     const [ readValue, setReadValue ] = React.useState(false);
-    const [ deviceId, setDeviceId ] = React.useState(1);
-
-    const handleDeviceIdChange = e => setDeviceId(e.target.value);
 
     const handleClickStartReadValue = () => {
         setReadValue(true);
@@ -149,30 +147,11 @@ export default function ATSCO2Test({ serialPort }) {
                                     height: 400
                                 }}
                             />
-                            <Paper sx={{ 
-                                p: 3,
-                                mt: 2,
-                                display: "flex",
-                                flexDirection: "row"
-                            }}>
-                                <TextField 
-                                    variant="outlined"
-                                    label="Modbus ID *"
-                                    size={"small"}
-                                    type="number"
-                                    min={1}
-                                    max={255}
-                                    placeholder={"1 - 255"}
-                                    value={deviceId}
-                                    onChange={handleDeviceIdChange}
-                                    sx={{
-                                        flexGrow: 1,
-                                        mr: 1
-                                    }}
-                                />
-                                {!readValue && <Button variant="contained" color="primary" onClick={() => true} disableElevation><PlayArrowIcon /></Button>}
-								{readValue && <Button variant="contained" color="secondary" onClick={() => true} disableElevation><StopIcon /></Button>}
-                            </Paper>
+                            <Box>
+                                <Paper p={1}>
+
+                                </Paper>
+                            </Box>
                         </Grid>
                         <Grid item xs={9}>
                             <Paper>
@@ -271,6 +250,72 @@ export default function ATSCO2Test({ serialPort }) {
                                                 ]
                                             }}
                                         />
+                                    </Box>
+                                </Box>}
+                                {tabSelect === 1 && <Box p={3}>
+                                    {[
+                                        {
+                                            label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                                            type: "number",
+                                            props: {
+                                                min: 1,
+                                                max: 127
+                                            }
+                                        },
+                                        {
+                                            label: "ความเร็วการสื่อสาร (Baud rate)",
+                                            type: "option",
+                                            option: [ 9600, 14400, 19200 ]
+                                        },
+                                        {
+                                            label: "ปรับแต่งอุณหภูมิ (°C)",
+                                            type: "number",
+                                            isFloat: true,
+                                            props: {
+                                                min: -10,
+                                                max: 10
+                                            }
+                                        },
+                                        {
+                                            label: "ปรับแต่งความชื้น (%RH)",
+                                            type: "number",
+                                            isFloat: true,
+                                            props: {
+                                                min: -10,
+                                                max: 10
+                                            }
+                                        },
+                                        {
+                                            label: "ปรับแต่ง CO2 (ppm)",
+                                            type: "number",
+                                            isFloat: true,
+                                            props: {
+                                                min: -1000,
+                                                max: 1000
+                                            }
+                                        }
+                                    ].map((a, index) => <Box key={index} mb={2} sx={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center"
+                                    }}>
+                                        <div>{a.label}</div>
+                                        {a.type === "number" && <TextField
+                                            type="number"
+                                            size="small"
+                                            sx={{ width: 80 }}
+                                            {...a.props}
+                                        />}
+                                        {a.type === "option" && <Select
+                                            size="small"
+                                            sx={{ width: 100 }}
+                                            {...a.props}
+                                        >
+                                            {a.option.map((a, index) => <MenuItem key={index} value={a}>{a}</MenuItem>)}
+                                        </Select>}
+                                    </Box>)}
+                                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                        <LoadingButton variant="contained" disableElevation>บันทึก</LoadingButton>
                                     </Box>
                                 </Box>}
                             </Paper>

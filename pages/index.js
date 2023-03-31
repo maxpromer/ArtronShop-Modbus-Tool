@@ -226,9 +226,6 @@ export default function Home() {
 											vertical: 'bottom',
 											horizontal: 'left',
 										}}
-										sx={{
-											borderRadius: 10
-										}}
 									>
 										<Box p={2}>
 											<TextField 
@@ -249,7 +246,7 @@ export default function Home() {
 						</div>
 						{{
 							"scan": <ModbusScaner serialPort={serialPort} />,
-							"ats-co2": <ATSCO2Test serialPort={serialPort} />
+							"ats-co2": <ATSCO2Test serialPort={serialPort} modbusId={modbusId} />
 						}[selectTool]}
 					</>}
 				</section>
