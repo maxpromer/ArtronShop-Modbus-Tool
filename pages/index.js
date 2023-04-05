@@ -11,10 +11,10 @@ import Box from '@mui/material/Box';
 import styles from '../styles/Index.module.scss'
 
 import SearchIcon from '@mui/icons-material/Search';
-import ATS_CO2_SVG from "../src/ATS_CO2_SVG";
 
+import DeviceList from "../src/DeviceList";
 import ModbusScaner from '../src/pages/ModbusScaner';
-import ATSCO2Test from '../src/pages/ATSCO2Test';
+import SensorTest from '../src/pages/SensorTest';
 
 export default function Home() {
 	const [ selectTool, setSelectTool ] = React.useState(null);
@@ -46,7 +46,7 @@ export default function Home() {
 
 	const [ parityEl, setParityEl ] = React.useState(null);
 	const handleOpenSelectParity = e => {
-		selectTool !== "ats-co2" && setParityEl(e.currentTarget);
+		selectTool === "scan" && setParityEl(e.currentTarget);
 	};
 	const handleCloseParitySelect = () => {
 		setParityEl(null);
@@ -81,7 +81,7 @@ export default function Home() {
 
 	const [ stopBitEl, setStopBitEl ] = React.useState(null);
 	const handleOpenSelectStopBit = e => {
-		selectTool !== "ats-co2" && setStopBitEl(e.currentTarget);
+		selectTool === "scan" && setStopBitEl(e.currentTarget);
 	};
 	const handleCloseStopBitSelect = () => {
 		setStopBitEl(null);
@@ -150,23 +150,22 @@ export default function Home() {
 					{selectTool == null && <div className={styles.tool_select_box}>
 						<Typography variant="h1" component="h2" sx={{ mb: 1 }}>เลือกเครื่องมือที่ต้องการใช้งาน</Typography>
 						<ul className={styles.tool_select_item_box}>
-							{[
+							{([
 								{
 									key: "scan",
 									icon: <SearchIcon sx={{ fontSize: 100 }} />,
 									title: "ค้นหา",
 									description: "สแกนหาหมายเลขอุปกรณ์ Modbus RTU ที่ต่อบนบัสทั้งหมด"
 								},
-								{
-									key: "ats-co2",
-									icon: <ATS_CO2_SVG style={{ maxHeight: 100, width: 100  }} />,
-									title: "ATS-CO2",
-									description: "อ่านค่า CO2 อุณหภูมิ ความชื้นอากาศ "
-								},
-							].map(a => <li key={a.key}>
+							].concat(DeviceList.map((a, index) => ({ 
+								key: `sensor-${index}`,
+								icon: <a.image style={{ maxHeight: 100, width: 100 }} />,
+								title: a.name,
+								description: a.description
+							})))).map(a => <li key={a.key}>
 								<div onClick={handleSelectTool(a.key)}>
 									<div>{a.icon}</div>
-									<div>
+									<div style={{ paddingRight: 10 }}>
 										<Typography variant="h3" component="h3">{a.title}</Typography>
 										<Typography variant="subtitle1">{a.description}</Typography>
 									</div>
@@ -183,7 +182,7 @@ export default function Home() {
 									open={Boolean(baudrateEl)}
 									onClose={handleCloseBaudrateSelect}
 								>
-									{(selectTool === "ats-co2" ? [ 9600, 14400, 19200 ] :
+									{(selectTool !== "scan" ? [ 9600, 14400, 19200 ] :
 									[ 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200 ]
 									).map(
 										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
@@ -214,7 +213,7 @@ export default function Home() {
 										stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
 									)}
 								</Menu>
-								{selectTool === "ats-co2" && <>
+								{selectTool !== "scan" && <>
 									<div>Modbus ID: <span onClick={handleOpenSelectID}>{modbusId}</span></div>
 									<Popover
 										open={Boolean(idEl)}
@@ -242,10 +241,8 @@ export default function Home() {
 								{serialPort && <Button variant="contained" color="secondary" onClick={handleClickDisconnect} disableElevation>ยกเลิกเชื่อมต่อ</Button>}
 							</div>
 						</div>
-						{{
-							"scan": <ModbusScaner serialPort={serialPort} />,
-							"ats-co2": <ATSCO2Test serialPort={serialPort} modbusId={modbusId} />
-						}[selectTool]}
+						{selectTool === "scan" && <ModbusScaner serialPort={serialPort} />}
+						{selectTool.startsWith("sensor") && <SensorTest serialPort={serialPort} modbusId={modbusId} sensorInfo={DeviceList[+(selectTool.split("-")[1])]} />}
 					</>}
 				</section>
 				<footer>พัฒนาโดย <a href="https://www.artronshop.co.th" target="_blank">บริษัท อาร์ทรอน ชอป จำกัด</a> | ให้บริการวิจัยและพัฒนาอุปกรณ์อิเล็กทรอนิกส์อัจฉริยะ</footer>

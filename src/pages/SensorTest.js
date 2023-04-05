@@ -116,19 +116,15 @@ function crc16(buffer, length) {
     return crc;
 };
 
-export default function ATSCO2Test({ serialPort, modbusId }) {
+export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
     const [ tabSelect, setTabSelect ] = React.useState(0);
     const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
 
-    const [ sensorValue, setSensorValue ] = React.useState([ ]);
-    const [ sensorConfigs, setSensorConfigs ] = React.useState({
-        id: 1,
-        baud_rate: 0,
-        temp_correction: 0,
-        humi_correction: 0,
-        co2_correction: 0
-    });
+    const [ sensorValue, setSensorValue, sensorValueRef ] = useStateWithRef([ ]);
+    const [ sensorConfigs, setSensorConfigs ] = React.useState([ ]);
     const [ logs, setLogs, logsRef ] = useStateWithRef([ ]);
+
+    console.log("sensorValue", sensorValue);
 
     const [
         LOG_OK,
@@ -146,8 +142,10 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
         }, 100);
     }
 
-    const handleChangeSensorConfigs = key => (e) => {
-        setSensorConfigs({ ...sensorConfigs, [key]: e.target.value });
+    const handleChangeSensorConfigs = index => (e) => {
+        const newSensorConfigs = [ ...sensorConfigs ];
+        newSensorConfigs[index] = e.target.value;
+        setSensorConfigs(newSensorConfigs);
     }
 
     const hex = data => Array.from(data).map(a => a.toString(16)).map(a => a.length === 1 ? ("0" + a) : a).join(" ").toUpperCase();
@@ -195,7 +193,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                         while (1) {
                             const { value, done } = await reader.read();
                             if (value) {
-                                data = data.concat(value);
+                                data = data.concat(Array.from(value));
                             }
                             if (data.length >= read_len) {
                                 await reader.cancel();
@@ -213,6 +211,7 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                     }
                 });
                 data_recv = await loop_read;
+                console.log(typeof data_recv, data_recv);
             } catch(e) {
                 console.error("serial port error", e);
             }
@@ -236,8 +235,10 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                 throw "recv data size invalid";
             }
 
+            const recv_crc = (data_recv[read_len - 1] << 8) | data_recv[read_len - 2];
             const crc = crc16(data_recv, data_recv.length - 2);
-            if ((data_recv[read_len - 2] != (crc & 0xFF)) || (data_recv[read_len - 2] != ((crc >> 8) & 0xFF))) {
+            if (crc != recv_crc) {
+                console.log("recv crc", recv_crc, "cal crc", crc);
                 throw "recv crc invalid";
             }
 
@@ -253,17 +254,31 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
 
     const read_sensor_value_polling = async () => {
         try {
-            const data = await ModbusReadRegister(modbusId, 4, 0x0001, 3);
+            const sensor_bytes = sensorInfo.sensor.map(a => a.register.type.size).reduce((partialSum, a) => partialSum + a, 0);
+            const data = await ModbusReadRegister(modbusId, sensorInfo.sensor[0].register.function.read, sensorInfo.sensor[0].register.address, sensor_bytes / 2);
 
-            const temp = ((data[0] << 8) | data[1]) / 10.0;
-            const humi = ((data[2] << 8) | data[3]) / 10.0;
-            const co2 = (data[4] << 8 | data[5]);
+            const value = [];
+            let index = 0;
+            for (const sensor of sensorInfo.sensor) {
+                const raw_data = [];
+                for (let i=0;i<sensor.register.type.size;i++) {
+                    raw_data.push(data[index++]);
+                }
+                let register_value = sensor.register.type.process.decode(raw_data);
+                if (typeof sensor.register.process?.decode === "function") {
+                    register_value = sensor.register.process.decode(register_value);
+                }
+                value.push(register_value);
+            }
 
-            setSensorValue([ ...sensorValue ].concat({
+            console.log("push", {
                 time: new Date(),
-                temp,
-                humi,
-                co2
+                value
+            });
+
+            setSensorValue([ ...sensorValueRef.current ].slice(-30).concat({
+                time: new Date(),
+                value
             }));
         } catch(e) {
             console.error(e);
@@ -274,21 +289,25 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
 
     const read_settings_once = async () => {
         try {
-            const data = await ModbusReadRegister(modbusId, 4, 0x0101, 5);
+            const configs_bytes = sensorInfo.configs.map(a => a.register.type.size).reduce((partialSum, a) => partialSum + a, 0);
+            const data = await ModbusReadRegister(modbusId, sensorInfo.configs[0].register.function.read, sensorInfo.configs[0].register.address, configs_bytes / 2);
 
-            const id = ((data[0] << 8) | data[1]);
-            const baud_rate = ((data[2] << 8) | data[3]);
-            const temp_correction  = ((data[4] << 8) | data[5]) / 10.0;
-            const humi_correction  = ((data[6] << 8) | data[7]) / 10.0;
-            const co2_correction  = (data[8] << 8 | data[9]);
+            const value = [];
+            let index = 0;
+            for (const config of sensorInfo.configs) {
+                const raw_data = [];
+                for (let i=0;i<config.register.type.size;i++) {
+                    raw_data.push(data[index++]);
+                }
+                console.log("config", config);
+                let register_value = config.register.type.process.decode(raw_data);
+                if (typeof config.register.process?.decode === "function") {
+                    register_value = config.register.process.decode(register_value);
+                }
+                value.push(register_value);
+            }
 
-            setSensorConfigs([ ...sensorValue ].concat({
-                id,
-                baud_rate,
-                temp_correction,
-                humi_correction,
-                co2_correction
-            }));
+            setSensorConfigs(value);
         } catch(e) {
             console.error(e);
         }
@@ -319,13 +338,13 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                 <Box pt={4}>
                     <Grid container spacing={2}>
                         <Grid item md={3}>
-                            <ATS_CO2_SVG 
+                            {sensorInfo.image && <sensorInfo.image 
                                 style={{
                                     display: "block",
                                     width: "100%",
                                     height: 400
                                 }}
-                            />
+                            />}
                             <Box mt={2}>
                                 <Box sx={{ 
                                     background: "#1C2833", 
@@ -343,13 +362,13 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                             <Paper>
                                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                                     <Tabs value={tabSelect} onChange={handleChangeTabSelect} centered>
-                                        <Tab label="อ่านค่า" icon={<SsidChartIcon />} />
-                                        <Tab label="ตั้งค่า" icon={<SettingsIcon />} />
+                                        {sensorInfo.sensor && <Tab label="อ่านค่า" icon={<SsidChartIcon />} />}
+                                        {sensorInfo.configs && <Tab label="ตั้งค่า" icon={<SettingsIcon />} />}
                                     </Tabs>
                                 </Box>
                                 {tabSelect === 0 && <Box p={2}>
                                     <Grid container spacing={2} justifyContent="space-around">
-                                        {[
+                                        {/*[
                                             {
                                                 icon: <Co2Icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                                 label: "CO2",
@@ -368,7 +387,11 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                 value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].humi.toFixed(1)) || "\u00A0",
                                                 uint: "%RH"
                                             },
-                                        ].map((a, index) => <Grid key={index} item md={4} sx={{ display: "flex", justifyContent: "center" }}>
+                                        ]*/ sensorInfo.sensor.map((a, index) => ({
+                                            ...a,
+                                            icon: a.icon && <a.icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
+                                            value: sensorValue?.[sensorValue.length - 1]?.value?.[index] || "",
+                                        })).map((a, index) => <Grid key={index} item md={4} sx={{ display: "flex", justifyContent: "center" }}>
                                             <BoxSensorValue
                                                 {...a}
                                                 sx={{
@@ -384,13 +407,17 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                 interaction: {
                                                     intersect: false,
                                                 },
+                                                animations: false,
                                                 locale: "th",
                                                 scales: {
                                                     x: {
                                                         type: 'time',
                                                         time: {
-                                                            tooltipFormat: 'DD/MM/YYYY',
-                                                            unit: 'day'
+                                                            tooltipFormat: 'HH:mm:ss',
+                                                            unit: 'second',
+                                                            displayFormats: {
+                                                                second: 'HH:mm:ss'
+                                                            }
                                                         },
                                                         title: {
                                                             display: false,
@@ -402,44 +429,26 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                         },
                                                     },
                                                     y: {
-                                                        display: false,
+                                                        display: true,
                                                     },
                                                 }
                                             }}
                                             data={{
                                                 labels: sensorValue.map(a => a.time),
-                                                datasets: [
-                                                    {
-                                                        label: 'CO2 (ppm)',
-                                                        data: sensorValue.map(a => a.co2),
-                                                        fill: false,
-                                                        tension: 0.4,
-                                                        borderColor: "#2ECC71",
-                                                        backgroundColor: "#2ECC71",
-                                                    },
-                                                    {
-                                                        label: 'อุณหภูมิ (°C)',
-                                                        data: sensorValue.map(a => a.temp),
-                                                        fill: false,
-                                                        tension: 0.4,
-                                                        borderColor: "#F1C40F",
-                                                        backgroundColor: "#F1C40F",
-                                                    },
-                                                    {
-                                                        label: 'ความชื้น (%RH)',
-                                                        data: sensorValue.map(a => a.humi),
-                                                        fill: false,
-                                                        tension: 0.4,
-                                                        borderColor: "#3498DB",
-                                                        backgroundColor: "#3498DB",
-                                                    },
-                                                ]
+                                                datasets: sensorInfo.sensor.map((a, index) => ({
+                                                    ...a,
+                                                    data: sensorValue?.map(a => a.value?.[index]) || [ ],
+                                                    fill: false,
+                                                    tension: 0.4,
+                                                    borderColor: a.color,
+                                                    backgroundColor: a.color,
+                                                }))
                                             }}
                                         />
                                     </Box>
                                 </Box>}
                                 {tabSelect === 1 && <Box p={3}>
-                                    {[
+                                    {/*[
                                         {
                                             key: "id",
                                             label: "หมายเลขอุปกรณ์ (Modbus ID)",
@@ -485,7 +494,10 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                                 max: 1000
                                             }
                                         }
-                                    ].map((a, index) => <Box key={index} mb={2} sx={{
+                                    ]*/ sensorInfo.configs.map(a => ({
+                                        ...a,
+
+                                    })).map((a, index) => <Box key={index} mb={2} sx={{
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center"
@@ -495,15 +507,15 @@ export default function ATSCO2Test({ serialPort, modbusId }) {
                                             type="number"
                                             size="small"
                                             sx={{ width: 80 }}
-                                            value={sensorConfigs[a.key]}
-                                            onChange={handleChangeSensorConfigs(a.key)}
+                                            value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
+                                            onChange={handleChangeSensorConfigs(index)}
                                             {...a.props}
                                         />}
                                         {a.type === "option" && <Select
                                             size="small"
                                             sx={{ width: 100 }}
-                                            value={sensorConfigs[a.key]}
-                                            onChange={handleChangeSensorConfigs(a.key)}
+                                            value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
+                                            onChange={handleChangeSensorConfigs(index)}
                                             {...a.props}
                                         >
                                             {a.option.map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
