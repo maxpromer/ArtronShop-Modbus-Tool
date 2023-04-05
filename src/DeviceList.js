@@ -8,6 +8,7 @@ import ATS_LUX_SVG from "./ATS_LUX_SVG";
 import Co2Icon from '@mui/icons-material/Co2';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import OpacityIcon from '@mui/icons-material/Opacity';
+import LightModeIcon from '@mui/icons-material/LightMode';
 
 const TYPE_TEMP = {
     icon: ThermostatIcon,
@@ -52,7 +53,7 @@ export default ([
         image: ATS_LUX_SVG,
         sensor: [
             {
-                icon: "",
+                icon: LightModeIcon,
                 label: "แสงสว่าง",
                 uint: "lx",
                 color: "#2ECC71",

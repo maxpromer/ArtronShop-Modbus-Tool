@@ -82,7 +82,8 @@ const BoxSensorValue = ({ icon, label, value, uint, ...props }) => <Box sx={{
         <div>
             <span style={{
                 fontSize: 24,
-                color: "#2C3E50"
+                color: "#2C3E50",
+                marginRight: 5
             }}>{value}</span>
             <span style={{
                 fontSize: 12,
@@ -123,8 +124,6 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
     const [ sensorValue, setSensorValue, sensorValueRef ] = useStateWithRef([ ]);
     const [ sensorConfigs, setSensorConfigs ] = React.useState([ ]);
     const [ logs, setLogs, logsRef ] = useStateWithRef([ ]);
-
-    console.log("sensorValue", sensorValue);
 
     const [
         LOG_OK,
@@ -211,7 +210,6 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
                     }
                 });
                 data_recv = await loop_read;
-                console.log(typeof data_recv, data_recv);
             } catch(e) {
                 console.error("serial port error", e);
             }
@@ -271,12 +269,7 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
                 value.push(register_value);
             }
 
-            console.log("push", {
-                time: new Date(),
-                value
-            });
-
-            setSensorValue([ ...sensorValueRef.current ].slice(-30).concat({
+            setSensorValue([ ...sensorValueRef.current ].slice(-51).concat({
                 time: new Date(),
                 value
             }));
@@ -368,26 +361,7 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
                                 </Box>
                                 {tabSelect === 0 && <Box p={2}>
                                     <Grid container spacing={2} justifyContent="space-around">
-                                        {/*[
-                                            {
-                                                icon: <Co2Icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
-                                                label: "CO2",
-                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].co2) || "\u00A0",
-                                                uint: "ppm"
-                                            },
-                                            {
-                                                icon: <ThermostatIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
-                                                label: "อุณหภูมิ",
-                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].temp.toFixed(1)) || "\u00A0",
-                                                uint: "°C"
-                                            },
-                                            {
-                                                icon: <OpacityIcon sx={{ fontSize: 50, color: "#2C3E50" }} />,
-                                                label: "ความชื้น",
-                                                value: (sensorValue.length > 0 && sensorValue[sensorValue.length - 1].humi.toFixed(1)) || "\u00A0",
-                                                uint: "%RH"
-                                            },
-                                        ]*/ sensorInfo.sensor.map((a, index) => ({
+                                        {sensorInfo.sensor.map((a, index) => ({
                                             ...a,
                                             icon: a.icon && <a.icon sx={{ fontSize: 50, color: "#2C3E50" }} />,
                                             value: sensorValue?.[sensorValue.length - 1]?.value?.[index] || "",
