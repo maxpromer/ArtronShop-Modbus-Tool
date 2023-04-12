@@ -23,17 +23,14 @@ import Paper from '@mui/material/Paper';
 import Grid from '@mui/material/Grid';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
 
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
 import SsidChartIcon from '@mui/icons-material/SsidChart';
 import SettingsIcon from '@mui/icons-material/Settings';
 
-import Co2Icon from '@mui/icons-material/Co2';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
-import OpacityIcon from '@mui/icons-material/Opacity';
-
-import ATS_CO2_SVG from "../ATS_CO2_SVG";
+import SaveIcon from '@mui/icons-material/Save';
 
 import {
     Chart as ChartJS,
@@ -117,7 +114,7 @@ function crc16(buffer, length) {
     return crc;
 };
 
-export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
+export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
     const [ tabSelect, setTabSelect ] = React.useState(0);
     const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
 
@@ -323,7 +320,115 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
         }
     }, [ serialPort, tabSelect ]);
 
-    
+    const ModbusWriteRegister = async (id, function_code, address, value) => {
+        { // Master -> Slave
+            const data = new Uint8Array([
+                id,                          // Devices Address
+                function_code,               // Function code
+                (address >> 8) & 0xFF,       // Address HIGH
+                address & 0xFF,              // Address LOW
+                (value >> 8) & 0xFF,         // Value HIGH
+                value & 0xFF,                // Value LOW
+                0x00,                        // CRC LOW
+                0x00                         // CRC HIGH
+            ]);
+            const crc = crc16(data, data.length - 2);
+            data[data.length - 2] = crc & 0xFF;
+            data[data.length - 1] = (crc >> 8) & 0xFF;
+
+            const writer = serialPort.writable.getWriter();
+            await writer.write(data);
+            writer.releaseLock();
+            addLog("<| " + hex(data), LOG_OK);
+        }
+
+        { // Master <- Slave
+            const read_len = 1 + 1 + 1 + 2 + 2; // ID, Function, Bytes Size, <Data * 2>, <CRC *2>
+
+            let data_recv = [];
+            try {
+                const loop_read = new Promise(async (resolve, reject) => {
+                    let data = [];
+                    const reader = serialPort.readable.getReader();
+
+                    const timer = setTimeout(() => {
+                        if (serialPort.readable.locked) {
+                            reader.cancel();
+                        }
+                    }, 1000); // wait max 2 sec
+
+                    try {
+                        while (1) {
+                            const { value, done } = await reader.read();
+                            if (value) {
+                                data = data.concat(Array.from(value));
+                            }
+                            if (data.length >= read_len) {
+                                await reader.cancel();
+                            }
+                            if (done) {
+                                clearTimeout(timer);
+                                resolve(data);
+                                break;
+                            }
+                        }
+                    } catch(e) {
+                        reject(e);
+                    } finally {
+                        reader.releaseLock();
+                    }
+                });
+                data_recv = await loop_read;
+            } catch(e) {
+                console.error("serial port error", e);
+            }
+            if (data_recv.length > 0) {
+                addLog(">| " + hex(data_recv), LOG_OK);
+            }
+
+            if (data_recv.length != read_len) {
+                throw "recv len invalid";
+            }
+
+            if (data_recv[0] != id) {
+                throw "recv id invalid";
+            }
+
+            if (data_recv[1] != function_code) {
+                throw "recv function code invalid";
+            }
+
+            if (data_recv[2] != 2) {
+                throw "recv data size invalid";
+            }
+
+            const recv_data = (data_recv[3] << 8) | data_recv[4];
+            if (value != recv_data) {
+                console.log("write", value, "but recv data", recv_data);
+                throw "recv value invalid";
+            }
+
+            const recv_crc = (data_recv[6] << 8) | data_recv[5];
+            const crc = crc16(data_recv, data_recv.length - 2);
+            if (crc != recv_crc) {
+                console.log("recv crc", recv_crc, "cal crc", crc);
+                throw "recv crc invalid";
+            }
+
+            return true;
+        }
+
+        return null;
+    }
+
+    const handleClickSaveConfigs = (registerInfo, value) => async () => {
+        try {
+            await ModbusWriteRegister(modbusId, registerInfo.function.write_single, registerInfo.address, value);
+        } catch(e) {
+            console.log(e);
+            window.alert(e);
+        }
+    }
 
 	return (
 		<>
@@ -478,26 +583,47 @@ export default function ATSCO2Test({ serialPort, modbusId, sensorInfo }) {
                                     }}>
                                         <div>{a.label}</div>
                                         {a.type === "number" && <TextField
-                                            type="number"
+                                            type="text"
                                             size="small"
-                                            sx={{ width: 80 }}
+                                            sx={{ width: 140 }}
                                             value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
                                             onChange={handleChangeSensorConfigs(index)}
+                                            InputProps={{
+                                                endAdornment: 
+                                                    <InputAdornment position="end">
+                                                      <IconButton
+                                                        onClick={handleClickSaveConfigs(a.register, sensorConfigs?.[index])}
+                                                        edge="end"
+                                                      >
+                                                        <SaveIcon />
+                                                      </IconButton>
+                                                    </InputAdornment>
+                                            }}
                                             {...a.props}
                                         />}
                                         {a.type === "option" && <Select
                                             size="small"
-                                            sx={{ width: 100 }}
+                                            sx={{ width: 140 }}
                                             value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
                                             onChange={handleChangeSensorConfigs(index)}
+                                            endAdornment={
+                                                <InputAdornment position="end">
+                                                <IconButton
+                                                  onClick={handleClickSaveConfigs(a.register, sensorConfigs?.[index])}
+                                                  edge="end"
+                                                >
+                                                  <SaveIcon />
+                                                </IconButton>
+                                              </InputAdornment>
+                                            }
                                             {...a.props}
                                         >
                                             {a.option.map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
                                         </Select>}
                                     </Box>)}
-                                    <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                    {/*<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
                                         <LoadingButton variant="contained" disableElevation>บันทึก</LoadingButton>
-                                    </Box>
+                                    </Box>*/}
                                 </Box>}
                             </Paper>
                         </Grid>
