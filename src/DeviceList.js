@@ -154,5 +154,80 @@ export default ([
                 }
             },
         ])
+    },
+    ,
+    {
+        key: "xy-md02",
+        name: "XY-MD02",
+        description: "อ่านค่าเซ็นเซอร์วัดอุณหภูมิและความชื้น",
+        image: ATS_CO2_SVG,
+        sensor: [
+            {
+                ...TYPE_TEMP,
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10
+                    }
+                }
+            },
+            {
+                ...TYPE_HUMI,
+                color: "#3498DB",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0002,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10
+                    }
+                }
+            },
+        ],
+        configs: [].concat(CONFIGS_ATS_SERIES[0]).concat([
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: { 
+                    9600: 9600, 
+                    14400: 14400,
+                    19200: 19200,
+                },
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0102,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ปรับแต่งอุณหภูมิ (°C)",
+                type: "number",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0103,
+                    type: DataType.int16,
+                    process: {
+                        encode: a => Math.floor(a * 10),
+                        decode: a => a / 10
+                    }
+                }
+            },
+            {
+                label: "ปรับแต่งความชื้น (%RH)",
+                type: "number",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0104,
+                    type: DataType.int16,
+                    process: {
+                        encode: a => Math.floor(a * 10),
+                        decode: a => a / 10
+                    }
+                }
+            },
+        ])
     }
 ]);

@@ -132,14 +132,19 @@ export default function Home() {
 			return;
 		}
 
-		if (window.serial_writer) {
+		if (serialPort?.writable?.lock && window.serial_writer) {
 			window.serial_writer.releaseLock();
 		}
-		if (window.serial_reader) {
+		if (serialPort?.readable?.lock && window.serial_reader) {
 			window.serial_reader.releaseLock();
 		}
-		serialPort.close().catch(() => { /* Ignore the error */ });
-		setSerialPort(null);
+		try {
+			await serialPort.close();
+			setSerialPort(null);
+		} catch(e) {
+			console.log(e);
+			window.alert("Disconnect FAIL : " + e.toString());
+		}
 	}
 
 	return (

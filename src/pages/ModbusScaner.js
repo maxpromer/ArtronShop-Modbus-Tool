@@ -45,7 +45,7 @@ function crc16(buffer, length) {
 };
 
 export default function ModbusScaner({ serialPort }) {
-	const [ idScanRange, setIdScanRange ] = React.useState("2");
+	const [ idScanRange, setIdScanRange ] = React.useState("1-10");
 	const handleChangeidScanRangeInput = e => {
 		setIdScanRange(e.target.value.replace(/[^0-9\-\,]|/g, ''));
 	}
@@ -140,6 +140,7 @@ export default function ModbusScaner({ serialPort }) {
         setScaning(true);
 
         const writer = serialPort.writable.getWriter();
+        window.serial_writer = writer;
         // const reader = serialPort.readable.getReader();
         /*if (!serialPort.readable.locked) {
             serialPort.readable.pipeTo(new WritableStream({
@@ -159,6 +160,9 @@ export default function ModbusScaner({ serialPort }) {
         const id_arr = getIdRangeArray(idScanRange);
         const function_code_arr = functionCode.filter(a => functionCodeSelect.indexOf(a.code) > -1).map(a => a.code);
         for (const id of id_arr) {
+            if (!serialPort) {
+                return;
+            }
             scanStauts[id] = {};
             setScanResult(JSON.parse(JSON.stringify(scanStauts)));
             for (const function_code of function_code_arr) {
@@ -185,6 +189,7 @@ export default function ModbusScaner({ serialPort }) {
                 const deviceIdFocus = id;
                 const functionCodeFocus = function_code;
                 const reader = serialPort.readable.getReader();
+                window.serial_reader = reader;
                 try {
                     const found = await (new Promise(async (resolve, reject) => {
                         setTimeout(() => {
@@ -240,14 +245,16 @@ export default function ModbusScaner({ serialPort }) {
                 } catch(e) {
                     console.log(e);
                 } finally {
-                    if (serialPort.readable.lock) {
+                    if (serialPort?.readable?.lock) {
                         await reader.releaseLock();
+                        window.serial_reader = null;
                     }
                 }
                 await (new Promise((resolve => setTimeout(resolve, 100))))
             }
         }
         writer.releaseLock();
+        window.serial_writer = null;
 
         setScaning(false);
     }

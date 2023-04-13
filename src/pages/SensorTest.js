@@ -163,7 +163,8 @@ function InputConfigRow({ configsInfo, value, onChangeSensorConfigs, onClickSave
                 endAdornment={endAdornment}
                 {...addonProps}
             >
-                {(configsInfo.option || []).map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
+                {Array.isArray(configsInfo.option) && configsInfo.option.map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
+                {!Array.isArray(configsInfo.option) && typeof configsInfo.option === "object" && Object.keys(configsInfo.option).map((a, index) => <MenuItem key={index} value={a}>{configsInfo.option[a]}</MenuItem>)}
             </Select>}
         </Box>
     );
@@ -417,7 +418,10 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
         }
 
         { // Master <- Slave
-            const read_len = 1 + 1 + 1 + 2 + 2; // ID, Function, Bytes Size, <Data * 2>, <CRC *2>
+            let read_len = 1 + 1 + 1 + 2 + 2; // ID, Function, Bytes Size, <Data * 2>, <CRC *2>
+            if (sensorInfo.key === "xy-md02") {
+                read_len += 1;
+            }
 
             let data_recv = [];
             try {
@@ -460,6 +464,8 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                 addLog(">| " + hex(data_recv), LOG_OK);
             }
 
+            console.log(sensorInfo, data_recv.length, read_len);
+
             if (data_recv.length != read_len) {
                 throw "recv len invalid";
             }
@@ -470,6 +476,10 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
 
             if (data_recv[1] != function_code) {
                 throw "recv function code invalid";
+            }
+
+            if (sensorInfo.key === "xy-md02") {
+                return true;
             }
 
             if (data_recv[2] != 2) {
