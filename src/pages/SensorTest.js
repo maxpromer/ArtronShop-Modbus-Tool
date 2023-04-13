@@ -244,7 +244,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                     window.serial_reader = reader;
 
                     const timer = setTimeout(() => {
-                        if (serialPort.readable.locked) {
+                        if (serialPort?.readable?.locked) {
                             reader.cancel();
                         }
                     }, 1000); // wait max 2 sec
