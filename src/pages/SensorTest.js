@@ -96,8 +96,8 @@ const BoxSensorValue = ({ icon, label, value, uint, ...props }) => <Box sx={{
 </Box>;
 
 function crc16(buffer, length) {
-    var crc = 0xFFFF;
-    var odd;
+    let crc = 0xFFFF;
+    let odd = 0;
 
     for (var i = 0; i < length; i++) {
         crc = crc ^ buffer[i];
@@ -113,6 +113,61 @@ function crc16(buffer, length) {
 
     return crc;
 };
+
+function InputConfigRow({ configsInfo, value, onChangeSensorConfigs, onClickSaveConfigs }) {
+    const [ edited, setEdited ] = React.useState(false);
+    
+    const addonProps = {
+        value,
+        onChange: e => {
+            setEdited(true);
+            onChangeSensorConfigs(e)
+        }
+    };
+
+    const sendConfigsToDevice = async () => {
+        if (await onClickSaveConfigs(configsInfo.register, value)()) {
+            setEdited(false);
+        }
+    };
+
+    const endAdornment = edited && (
+        <InputAdornment position="end">
+            <IconButton
+                onClick={sendConfigsToDevice}
+                edge="end"
+            >
+                <SaveIcon />
+            </IconButton>
+        </InputAdornment>
+    );
+    
+    return (
+        <Box sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2
+        }}>
+            <div>{configsInfo.label}</div>
+            {configsInfo.type === "number" && <TextField
+                type="text"
+                size="small"
+                sx={{ width: 140 }}
+                InputProps={{ endAdornment }}
+                {...addonProps}
+            />}
+            {configsInfo.type === "option" && <Select
+                size="small"
+                sx={{ width: 140 }}
+                endAdornment={endAdornment}
+                {...addonProps}
+            >
+                {(configsInfo.option || []).map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
+            </Select>}
+        </Box>
+    );
+}
 
 export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
     const [ tabSelect, setTabSelect ] = React.useState(0);
@@ -296,6 +351,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                 }
                 value.push(register_value);
             }
+            console.log("value", value);
 
             setSensorConfigs(value);
         } catch(e) {
@@ -327,11 +383,12 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                 function_code,               // Function code
                 (address >> 8) & 0xFF,       // Address HIGH
                 address & 0xFF,              // Address LOW
-                (value >> 8) & 0xFF,         // Value HIGH
-                value & 0xFF,                // Value LOW
+            ]
+            .concat(value)
+            .concat([
                 0x00,                        // CRC LOW
                 0x00                         // CRC HIGH
-            ]);
+            ]));
             const crc = crc16(data, data.length - 2);
             data[data.length - 2] = crc & 0xFF;
             data[data.length - 1] = (crc >> 8) & 0xFF;
@@ -403,16 +460,18 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
             }
 
             const recv_data = (data_recv[3] << 8) | data_recv[4];
-            if (value != recv_data) {
+            const value_int = (value[0] << 8) | value[1];
+            if (value_int != recv_data) {
                 console.log("write", value, "but recv data", recv_data);
                 throw "recv value invalid";
             }
 
             const recv_crc = (data_recv[6] << 8) | data_recv[5];
+            console.log("crc info", data_recv, data_recv.length - 2);
             const crc = crc16(data_recv, data_recv.length - 2);
             if (crc != recv_crc) {
-                console.log("recv crc", recv_crc, "cal crc", crc);
-                throw "recv crc invalid";
+                console.log("recv crc", recv_crc, "but cal crc", crc);
+                // throw "recv crc invalid"; // Bug on ATS-CO2, ATS-LUX
             }
 
             return true;
@@ -422,12 +481,20 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
     }
 
     const handleClickSaveConfigs = (registerInfo, value) => async () => {
+        console.log("info", registerInfo, "value", value);
         try {
-            await ModbusWriteRegister(modbusId, registerInfo.function.write_single, registerInfo.address, value);
+            if (typeof registerInfo.process?.encode === "function") {
+                value = registerInfo.process.encode(value);
+            }
+            let register_value = registerInfo.type.process.encode(value);
+            await ModbusWriteRegister(modbusId, registerInfo.function.write_single, registerInfo.address, register_value);
         } catch(e) {
             console.log(e);
             window.alert(e);
+            return false;
         }
+
+        return true;
     }
 
 	return (
@@ -527,103 +594,14 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                                     </Box>
                                 </Box>}
                                 {tabSelect === 1 && <Box p={3}>
-                                    {/*[
-                                        {
-                                            key: "id",
-                                            label: "หมายเลขอุปกรณ์ (Modbus ID)",
-                                            type: "number",
-                                            props: {
-                                                min: 1,
-                                                max: 127
-                                            }
-                                        },
-                                        {
-                                            key: "baud_rate",
-                                            label: "ความเร็วการสื่อสาร (Baud rate)",
-                                            type: "option",
-                                            option: [ 9600, 14400, 19200 ]
-                                        },
-                                        {
-                                            key: "temp_correction",
-                                            label: "ปรับแต่งอุณหภูมิ (°C)",
-                                            type: "number",
-                                            isFloat: true,
-                                            props: {
-                                                min: -10,
-                                                max: 10
-                                            }
-                                        },
-                                        {
-                                            key: "humi_correction",
-                                            label: "ปรับแต่งความชื้น (%RH)",
-                                            type: "number",
-                                            isFloat: true,
-                                            props: {
-                                                min: -10,
-                                                max: 10
-                                            }
-                                        },
-                                        {
-                                            key: "co2_correction",
-                                            label: "ปรับแต่ง CO2 (ppm)",
-                                            type: "number",
-                                            isFloat: true,
-                                            props: {
-                                                min: -1000,
-                                                max: 1000
-                                            }
-                                        }
-                                    ]*/ sensorInfo.configs.map(a => ({
-                                        ...a,
-
-                                    })).map((a, index) => <Box key={index} mb={2} sx={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center"
-                                    }}>
-                                        <div>{a.label}</div>
-                                        {a.type === "number" && <TextField
-                                            type="text"
-                                            size="small"
-                                            sx={{ width: 140 }}
-                                            value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
-                                            onChange={handleChangeSensorConfigs(index)}
-                                            InputProps={{
-                                                endAdornment: 
-                                                    <InputAdornment position="end">
-                                                      <IconButton
-                                                        onClick={handleClickSaveConfigs(a.register, sensorConfigs?.[index])}
-                                                        edge="end"
-                                                      >
-                                                        <SaveIcon />
-                                                      </IconButton>
-                                                    </InputAdornment>
-                                            }}
-                                            {...a.props}
-                                        />}
-                                        {a.type === "option" && <Select
-                                            size="small"
-                                            sx={{ width: 140 }}
-                                            value={typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : ""}
-                                            onChange={handleChangeSensorConfigs(index)}
-                                            endAdornment={
-                                                <InputAdornment position="end">
-                                                <IconButton
-                                                  onClick={handleClickSaveConfigs(a.register, sensorConfigs?.[index])}
-                                                  edge="end"
-                                                >
-                                                  <SaveIcon />
-                                                </IconButton>
-                                              </InputAdornment>
-                                            }
-                                            {...a.props}
-                                        >
-                                            {a.option.map((a, index) => <MenuItem key={index} value={index}>{a}</MenuItem>)}
-                                        </Select>}
-                                    </Box>)}
-                                    {/*<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                        <LoadingButton variant="contained" disableElevation>บันทึก</LoadingButton>
-                                    </Box>*/}
+                                    {sensorInfo.configs.map((configsInfo, index) => 
+                                        <InputConfigRow key={index} {...({
+                                            configsInfo,
+                                            value: typeof sensorConfigs[index] !== "undefined" ? sensorConfigs[index] : "",
+                                            onChangeSensorConfigs: handleChangeSensorConfigs(index),
+                                            onClickSaveConfigs: handleClickSaveConfigs
+                                        })} />
+                                    )}
                                 </Box>}
                             </Paper>
                         </Grid>

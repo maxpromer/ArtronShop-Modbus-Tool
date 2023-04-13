@@ -10,8 +10,21 @@ export const DataType = {
     int16: {
         size: 2, // in bytes
         process: {
-            encode: a => ([ (a >> 8 & 0xFF), a & 0xFF ]),
-            decode: a => (a[0] << 8) | a[1]
+            encode: a => {
+                if (a < 0) { // if nagative number
+                    a = Math.abs(a);
+                    a = (a ^ 0xFFFF) + 1; // Two's complement
+                }
+                return ([ (a >> 8) & 0xFF, a & 0xFF ]);
+            },
+            decode: a => {
+                let n = (a[0] << 8) | a[1];
+                if (n & 0x8000) {
+                    n = (n ^ 0xFFFF) + 1; // Two's complement
+                    n = -n;
+                }
+                return n;
+            }
         }
     },
     uint16: {
