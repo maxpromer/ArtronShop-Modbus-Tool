@@ -4,12 +4,17 @@ import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Popover from '@mui/material/Popover';
+import TextField from '@mui/material/TextField';
+import Box from '@mui/material/Box';
 
 import styles from '../styles/Index.module.scss'
 
 import SearchIcon from '@mui/icons-material/Search';
 
+import DeviceList from "../src/DeviceList";
 import ModbusScaner from '../src/pages/ModbusScaner';
+import SensorTest from '../src/pages/SensorTest';
 
 export default function Home() {
 	const [ selectTool, setSelectTool ] = React.useState(null);
@@ -41,11 +46,12 @@ export default function Home() {
 
 	const [ parityEl, setParityEl ] = React.useState(null);
 	const handleOpenSelectParity = e => {
-		setParityEl(e.currentTarget);
+		selectTool === "scan" && setParityEl(e.currentTarget);
 	};
 	const handleCloseParitySelect = () => {
 		setParityEl(null);
 	};
+
 	const handleSelectParity = parity => () => {
 		const newSerialConfigs = { ...serialConfigs };
 		newSerialConfigs.parity = parity;
@@ -53,9 +59,29 @@ export default function Home() {
 		handleCloseParitySelect();
 	};
 
+	const [ idEl, setIdEl ] = React.useState(null);
+	const handleOpenSelectID = e => {
+		setIdEl(e.currentTarget);
+	};
+	const handleCloseIdSelect = () => {
+		setIdEl(null);
+	};
+
+	const [ modbusId, setModbusId ] = React.useState(1);
+	const handleChangetId = e => {
+		let id = +e.target.value;
+		if (id < 1) {
+			id = 1;
+		}
+		if (id > 127) {
+			id = 127;
+		}
+		setModbusId(id);
+	};
+
 	const [ stopBitEl, setStopBitEl ] = React.useState(null);
 	const handleOpenSelectStopBit = e => {
-		setStopBitEl(e.currentTarget);
+		selectTool === "scan" && setStopBitEl(e.currentTarget);
 	};
 	const handleCloseStopBitSelect = () => {
 		setStopBitEl(null);
@@ -106,8 +132,19 @@ export default function Home() {
 			return;
 		}
 
-		await serialPort.close();
-		setSerialPort(null);
+		if (serialPort?.writable?.lock && window.serial_writer) {
+			window.serial_writer.releaseLock();
+		}
+		if (serialPort?.readable?.lock && window.serial_reader) {
+			window.serial_reader.releaseLock();
+		}
+		try {
+			await serialPort.close();
+			setSerialPort(null);
+		} catch(e) {
+			console.log(e);
+			window.alert("Disconnect FAIL : " + e.toString());
+		}
 	}
 
 	return (
@@ -124,17 +161,27 @@ export default function Home() {
 					{selectTool == null && <div className={styles.tool_select_box}>
 						<Typography variant="h1" component="h2" sx={{ mb: 1 }}>เลือกเครื่องมือที่ต้องการใช้งาน</Typography>
 						<ul className={styles.tool_select_item_box}>
-							<li>
-								<div onClick={handleSelectTool("scan")}>
-									<div>
-										<SearchIcon sx={{ fontSize: 100 }} />
-									</div>
-									<div>
-										<Typography variant="h3" component="h3">ค้นหา</Typography>
-										<Typography variant="subtitle1">สแกนหาหมายเลขอุปกรณ์ Modbus RTU ที่ต่อบนบัสทั้งหมด</Typography>
+							{([
+								{
+									key: "scan",
+									icon: <SearchIcon sx={{ fontSize: 100 }} />,
+									title: "ค้นหา",
+									description: "สแกนหาหมายเลขอุปกรณ์ Modbus RTU ที่ต่อบนบัสทั้งหมด"
+								},
+							].concat(DeviceList.map((a, index) => ({ 
+								key: `sensor-${index}`,
+								icon: <a.image style={{ maxHeight: 100, width: 100 }} />,
+								title: a.name,
+								description: a.description
+							})))).map(a => <li key={a.key}>
+								<div onClick={handleSelectTool(a.key)}>
+									<div>{a.icon}</div>
+									<div style={{ paddingRight: 10 }}>
+										<Typography variant="h3" component="h3">{a.title}</Typography>
+										<Typography variant="subtitle1">{a.description}</Typography>
 									</div>
 								</div>
-							</li>
+							</li>)}
 						</ul>
 					</div>}
 					{selectTool != null && <>
@@ -146,9 +193,9 @@ export default function Home() {
 									open={Boolean(baudrateEl)}
 									onClose={handleCloseBaudrateSelect}
 								>
-									{[ 
-										2400, 4800, 9600, 19200, 38400, 57600, 115200 
-									].map(
+									{(selectTool !== "scan" ? [ 9600, 14400, 19200 ] :
+									[ 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200 ]
+									).map(
 										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
 									)}
 								</Menu>
@@ -158,7 +205,7 @@ export default function Home() {
 									open={Boolean(parityEl)}
 									onClose={handleCloseParitySelect}
 								>
-									{[ 
+									{[
 										"None", "Even", "Odd"
 									].map(
 										parity => <MenuItem key={parity} onClick={handleSelectParity(parity)}>{parity}</MenuItem>
@@ -171,19 +218,42 @@ export default function Home() {
 									open={Boolean(stopBitEl)}
 									onClose={handleCloseStopBitSelect}
 								>
-									{[ 
+									{[
 										1, 2
 									].map(
 										stop_bit => <MenuItem key={stop_bit} onClick={handleSelectStopBit(stop_bit)}>{stop_bit}</MenuItem>
 									)}
 								</Menu>
+								{selectTool !== "scan" && <>
+									<div>Modbus ID: <span onClick={handleOpenSelectID}>{modbusId}</span></div>
+									<Popover
+										open={Boolean(idEl)}
+										anchorEl={idEl}
+										onClose={handleCloseIdSelect}
+										anchorOrigin={{
+											vertical: 'bottom',
+											horizontal: 'left',
+										}}
+									>
+										<Box p={2}>
+											<TextField 
+												variant="outlined"
+												size="small"
+												value={modbusId}
+												onChange={handleChangetId}
+												sx={{ width: 60 }}
+											/>
+										</Box>
+									</Popover>
+								</>}
 							</div>
 							<div>
 								{!serialPort && <Button variant="contained" color="primary" onClick={handleClickConnect} disableElevation>เชื่อมต่อ</Button>}
 								{serialPort && <Button variant="contained" color="secondary" onClick={handleClickDisconnect} disableElevation>ยกเลิกเชื่อมต่อ</Button>}
 							</div>
 						</div>
-						<ModbusScaner serialPort={serialPort} />
+						{selectTool === "scan" && <ModbusScaner serialPort={serialPort} />}
+						{selectTool.startsWith("sensor") && <SensorTest serialPort={serialPort} modbusId={modbusId} sensorInfo={DeviceList[+(selectTool.split("-")[1])]} />}
 					</>}
 				</section>
 				<footer>พัฒนาโดย <a href="https://www.artronshop.co.th" target="_blank">บริษัท อาร์ทรอน ชอป จำกัด</a> | ให้บริการวิจัยและพัฒนาอุปกรณ์อิเล็กทรอนิกส์อัจฉริยะ</footer>

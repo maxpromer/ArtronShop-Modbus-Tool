@@ -52,14 +52,16 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 20
+          borderRadius: 40,
+          boxShadow: "0 0 40px 0 rgba(0, 0, 0, 0.15)"
         }
       }
     },
     MuiPopover: {
       styleOverrides: {
         paper: {
-          boxShadow: "0 5px 20px rgb(0 0 0 / 17%)"
+          boxShadow: "0 5px 20px rgb(0 0 0 / 17%)",
+          borderRadius: 20,
         }
       }
     }
