@@ -132,7 +132,13 @@ export default function Home() {
 			return;
 		}
 
-		await serialPort.close();
+		if (window.serial_writer) {
+			window.serial_writer.releaseLock();
+		}
+		if (window.serial_reader) {
+			window.serial_reader.releaseLock();
+		}
+		serialPort.close().catch(() => { /* Ignore the error */ });
 		setSerialPort(null);
 	}
 

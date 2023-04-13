@@ -170,7 +170,7 @@ function InputConfigRow({ configsInfo, value, onChangeSensorConfigs, onClickSave
 }
 
 export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
-    const [ tabSelect, setTabSelect ] = React.useState(0);
+    const [ tabSelect, setTabSelect, tabSelectRef ] = useStateWithRef(0);
     const handleChangeTabSelect = (e, newValue) => setTabSelect(newValue);
 
     const [ sensorValue, setSensorValue, sensorValueRef ] = useStateWithRef([ ]);
@@ -189,7 +189,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
         setLogs([ ...logsRef.current ].concat({ code, text }));
         // console.log(logsBoxRef.current);
         setTimeout(() => {
-            logsBoxRef.current.scrollTop = logsBoxRef.current?.scrollHeight || 0;
+            logsBoxRef.current.scrollTop = logsBoxRef?.current?.scrollHeight || 0;
         }, 100);
     }
 
@@ -219,8 +219,10 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
             data[data.length - 1] = (crc >> 8) & 0xFF;
 
             const writer = serialPort.writable.getWriter();
+            window.serial_writer = writer;
             await writer.write(data);
             writer.releaseLock();
+            window.serial_writer = null;
             addLog("<| " + hex(data), LOG_OK);
         }
 
@@ -232,7 +234,14 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
             try {
                 const loop_read = new Promise(async (resolve, reject) => {
                     let data = [];
-                    const reader = serialPort.readable.getReader();
+                    let reader = null;
+                    try {
+                        reader = serialPort.readable.getReader();
+                    } catch(e) {
+                        reject(e);
+                        return;
+                    }
+                    window.serial_reader = reader;
 
                     const timer = setTimeout(() => {
                         if (serialPort.readable.locked) {
@@ -258,7 +267,10 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                     } catch(e) {
                         reject(e);
                     } finally {
-                        reader.releaseLock();
+                        if (reader) {
+                            reader.releaseLock();
+                            window.serial_reader = null;
+                        }
                     }
                 });
                 data_recv = await loop_read;
@@ -303,6 +315,10 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
     }
 
     const read_sensor_value_polling = async () => {
+        if (tabSelectRef.current !== 0) {
+            return;
+        }
+
         try {
             const sensor_bytes = sensorInfo.sensor.map(a => a.register.type.size).reduce((partialSum, a) => partialSum + a, 0);
             const data = await ModbusReadRegister(modbusId, sensorInfo.sensor[0].register.function.read, sensorInfo.sensor[0].register.address, sensor_bytes / 2);
@@ -362,6 +378,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
     React.useEffect(() => {
         if (serialPort) {
             if (tabSelect === 0) { // อ่านค่า
+                setSensorValue([ ]);
                 read_sensor_value_polling();
             } else if (tabSelect === 1) { // ตั้งค่า
                 read_settings_once();
