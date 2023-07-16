@@ -28,6 +28,9 @@ const theme = createTheme({
       fontSize: 36,
       color: '#2ECC71',
     },
+    h6: {
+      lineHeight: 1
+    }
   },
   components: {
     MuiInputBase: {
