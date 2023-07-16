@@ -3,6 +3,9 @@ import { FunctionType, DataType } from "./ModbusUtility";
 // SVG icon
 import ATS_CO2_SVG from "./ATS_CO2_SVG";
 import ATS_LUX_SVG from "./ATS_LUX_SVG";
+import XY_MD02_SVG from "./XY_MD02_SVG";
+import ATS_TH_SVG from "./ATS_TH_SVG";
+import PRESS485_SVG from "./PRESS485_SVG";
 
 // MUI icon
 import Co2Icon from '@mui/icons-material/Co2';
@@ -155,12 +158,11 @@ export default ([
             },
         ])
     },
-    ,
     {
         key: "xy-md02",
         name: "XY-MD02",
         description: "อ่านค่าเซ็นเซอร์วัดอุณหภูมิและความชื้น",
-        image: ATS_CO2_SVG,
+        image: XY_MD02_SVG,
         sensor: [
             {
                 ...TYPE_TEMP,
@@ -228,6 +230,103 @@ export default ([
                     }
                 }
             },
+        ])
+    },
+    {
+        key: "ats-th",
+        name: "ATS-TH",
+        description: "อ่านค่าเซ็นเซอร์วัดอุณหภูมิและความชื้นควาแม่นยำสูง",
+        image: ATS_TH_SVG,
+        sensor: [
+            {
+                ...TYPE_TEMP,
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10
+                    }
+                }
+            },
+            {
+                ...TYPE_HUMI,
+                color: "#3498DB",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0002,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10
+                    }
+                }
+            },
+        ],
+        configs: CONFIGS_ATS_SERIES.concat([
+            {
+                label: "ปรับแต่งอุณหภูมิ (°C)",
+                type: "number",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0103,
+                    type: DataType.int16,
+                    process: {
+                        encode: a => Math.floor(a * 10),
+                        decode: a => a / 10
+                    }
+                }
+            },
+            {
+                label: "ปรับแต่งความชื้น (%RH)",
+                type: "number",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0104,
+                    type: DataType.int16,
+                    process: {
+                        encode: a => Math.floor(a * 10),
+                        decode: a => a / 10
+                    }
+                }
+            },
+        ])
+    },
+    {
+        key: "press485",
+        name: "PRESS485",
+        description: "อ่านค่าเซ็นเซอร์วัดความดัน",
+        image: PRESS485_SVG,
+        sensor: [
+            {
+                icon: ThermostatIcon,
+                label: "ความดัน",
+                uint: "",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            }
+        ],
+        configs: CONFIGS_ATS_SERIES.concat([
+            {
+                label: "ปรับแต่งความดัน",
+                type: "number",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0103,
+                    type: DataType.int16,
+                    process: {
+                        encode: a => a,
+                        decode: a => a
+                    }
+                }
+            }
         ])
     }
 ]);

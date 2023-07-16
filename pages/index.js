@@ -159,7 +159,7 @@ export default function Home() {
 			<main className={styles.main}>
 				<section>
 					{selectTool == null && <div className={styles.tool_select_box}>
-						<Typography variant="h1" component="h2" sx={{ mb: 1 }}>เลือกเครื่องมือที่ต้องการใช้งาน</Typography>
+						<Typography variant="body1" sx={{ mb: 0 }}>เลือกเครื่องมือที่ต้องการใช้งาน</Typography>
 						<ul className={styles.tool_select_item_box}>
 							{([
 								{
@@ -178,7 +178,7 @@ export default function Home() {
 									<div>{a.icon}</div>
 									<div style={{ paddingRight: 10 }}>
 										<Typography variant="h3" component="h3">{a.title}</Typography>
-										<Typography variant="subtitle1">{a.description}</Typography>
+										<Typography variant="subtitle1" sx={{ lineHeight: 1.4, color: "#808B96" }}>{a.description}</Typography>
 									</div>
 								</div>
 							</li>)}
