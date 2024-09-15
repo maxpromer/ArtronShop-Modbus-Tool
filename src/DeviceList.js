@@ -6,23 +6,34 @@ import ATS_LUX_SVG from "./ATS_LUX_SVG";
 import XY_MD02_SVG from "./XY_MD02_SVG";
 import ATS_TH_SVG from "./ATS_TH_SVG";
 import PRESS485_SVG from "./PRESS485_SVG";
+import ATS_DECIBEL_SVG from "./ATS_DECIBEL_SVG";
+import SOIL_RS485_SVG from "./SOIL_RS485_SVG";
+import WIND_SPEED_SVG from "./WIND_SPEED_SVG";
+import WIND_DIRCTION_SVG from "./WIND_DIRCTION_SVG";
+import WATER_LEVEL_SVG from "./WATER_LEVEL_SVG";
 
 // MUI icon
 import Co2Icon from '@mui/icons-material/Co2';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import WaterIcon from '@mui/icons-material/Water';
+import SpeedIcon from '@mui/icons-material/Speed';
+import GasMeterIcon from '@mui/icons-material/GasMeter';
+import AirIcon from '@mui/icons-material/Air';
+import PropaneTankIcon from '@mui/icons-material/PropaneTank';
+import GraphicEqIcon from '@mui/icons-material/GraphicEq';
 
 const TYPE_TEMP = {
     icon: ThermostatIcon,
     label: "อุณหภูมิ",
-    uint: "°C"
+    unit: "°C"
 };
 
 const TYPE_HUMI = {
     icon: OpacityIcon,
     label: "ความชื้น",
-    uint: "%RH"
+    unit: "%RH"
 };
 
 const CONFIGS_ATS_SERIES = [
@@ -58,7 +69,7 @@ export default ([
             {
                 icon: LightModeIcon,
                 label: "แสงสว่าง",
-                uint: "lx",
+                unit: "lx",
                 color: "#2ECC71",
                 register: {
                     function: FunctionType.Input,
@@ -111,7 +122,7 @@ export default ([
             {
                 icon: Co2Icon,
                 label: "CO2",
-                uint: "ppm",
+                unit: "ppm",
                 color: "#2ECC71",
                 register: {
                     function: FunctionType.Input,
@@ -292,6 +303,52 @@ export default ([
             },
         ])
     },
+    ,
+    {
+        key: "ats-decibel",
+        name: "ATS-DECIBEL",
+        description: "อ่านค่าเซ็นเซอร์วัดความดังเสียง",
+        image: ATS_DECIBEL_SVG,
+        sensor: [
+            {
+                icon: GraphicEqIcon,
+                label: "ความดัง",
+                unit: "dB",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x0000,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10
+                    }
+                }
+            },
+        ],
+        configs: [
+            {
+                label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                type: "number",
+                min: 1,
+                max: 255,
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D0,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: [ 2400, 4800, 9600 ],
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D1,
+                    type: DataType.uint16
+                }
+            }
+        ]
+    },
     {
         key: "press485",
         name: "PRESS485",
@@ -301,7 +358,7 @@ export default ([
             {
                 icon: ThermostatIcon,
                 label: "ความดัน",
-                uint: "",
+                unit: "",
                 color: "#F1C40F",
                 register: {
                     function: FunctionType.Input,
@@ -328,5 +385,269 @@ export default ([
                 }
             }
         ])
-    }
+    },
+    {
+        key: "soil-rs485",
+        name: "Soil RS485",
+        description: "อ่านค่าเซ็นเซอร์วัดความชื้นในดิน",
+        image: SOIL_RS485_SVG,
+        sensor: [
+            {
+                icon: WaterIcon,
+                label: "ความชื้นในดิน",
+                unit: "%",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0000,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a / 10.0
+                    }
+                }
+            },
+            {
+                icon: ThermostatIcon,
+                label: "อุณหภูมิ",
+                unit: "°C",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.int16,
+                    process: {
+                        decode: a => a / 10.0
+                    }
+                }
+            },
+            {
+                icon: SpeedIcon,
+                label: "ความนำไฟฟ้า",
+                unit: "us/cm",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0002,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            },
+            {
+                icon: OpacityIcon,
+                label: "PH",
+                unit: "",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0003,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a / 10.0
+                    }
+                }
+            },
+            {
+                icon: GasMeterIcon,
+                label: "ไนโตรเจน (N)",
+                unit: "mg/kg",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0004,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            },
+            {
+                icon: GasMeterIcon,
+                label: "ฟอสฟอรัส (P)",
+                unit: "mg/kg",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0005,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            },
+            {
+                icon: GasMeterIcon,
+                label: "โพแทสเซียม (K)",
+                unit: "mg/kg",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0006,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            }
+        ],
+        configs: [
+            {
+                label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                type: "number",
+                min: 1,
+                max: 254,
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D0,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: [ 2400, 4800, 9600 ],
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D1,
+                    type: DataType.uint16
+                }
+            }
+        ]
+    },
+    {
+        key: "wind-speed",
+        name: "Wind Speed",
+        description: "อ่านค่าเซ็นเซอร์วัดความเร็วลม",
+        image: WIND_SPEED_SVG,
+        sensor: [
+            {
+                icon: AirIcon,
+                label: "ความเร็วลม",
+                unit: "m/s",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0000,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a / 10.0
+                    }
+                }
+            },
+        ],
+        configs: [
+            {
+                label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                type: "number",
+                min: 1,
+                max: 254,
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D0,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: [ 2400, 4800, 9600, 19200, 38400, 57600, 115200, 1200 ],
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D1,
+                    type: DataType.uint16
+                }
+            }
+        ]
+    },
+    {
+        key: "wind-direction",
+        name: "Wind Direction",
+        description: "อ่านค่าเซ็นเซอร์วัดทิศทางลม",
+        image: WIND_DIRCTION_SVG,
+        sensor: [
+            {
+                icon: AirIcon,
+                label: "ทิศทางลม",
+                unit: "°",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            },
+        ],
+        configs: [
+            {
+                label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                type: "number",
+                min: 1,
+                max: 254,
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D0,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: [ 2400, 4800, 9600, 19200, 38400, 57600, 115200, 1200 ],
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D1,
+                    type: DataType.uint16
+                }
+            }
+        ]
+    },
+    {
+        key: "water-level",
+        name: "Water Level",
+        description: "อ่านค่าเซ็นเซอร์วัดระดับน้ำ",
+        image: WATER_LEVEL_SVG,
+        sensor: [
+            {
+                icon: PropaneTankIcon,
+                label: "ระดับน้ำ",
+                unit: "",
+                color: "#F1C40F",
+                register: {
+                    function: FunctionType.Input,
+                    address: 0x0001,
+                    type: DataType.uint16,
+                    process: {
+                        decode: a => a
+                    }
+                }
+            },
+        ],
+        configs: [
+            {
+                label: "หมายเลขอุปกรณ์ (Modbus ID)",
+                type: "number",
+                min: 1,
+                max: 254,
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D0,
+                    type: DataType.uint16
+                }
+            },
+            {
+                label: "ความเร็วการสื่อสาร (Baud rate)",
+                type: "option",
+                option: [ 2400, 4800, 9600, 19200, 38400, 57600, 115200, 1200 ],
+                register: {
+                    function: FunctionType.Holding,
+                    address: 0x07D1,
+                    type: DataType.uint16
+                }
+            }
+        ]
+    },
 ]);

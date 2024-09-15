@@ -419,7 +419,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
 
         { // Master <- Slave
             let read_len = 1 + 1 + 1 + 2 + 2; // ID, Function, Bytes Size, <Data * 2>, <CRC *2>
-            if (sensorInfo.key === "xy-md02") {
+            if ([ "xy-md02",  "ats-decibel" ].indexOf(sensorInfo.key) >= 0) { // ATS sensor has bug
                 read_len += 1;
             }
 
@@ -478,7 +478,7 @@ export default function SensorTest({ serialPort, modbusId, sensorInfo }) {
                 throw "recv function code invalid";
             }
 
-            if (sensorInfo.key === "xy-md02") {
+            if ([ "xy-md02",  "ats-decibel" ].indexOf(sensorInfo.key) >= 0) {
                 return true;
             }
 
