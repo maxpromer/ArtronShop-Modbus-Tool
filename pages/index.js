@@ -193,9 +193,7 @@ export default function Home() {
 									open={Boolean(baudrateEl)}
 									onClose={handleCloseBaudrateSelect}
 								>
-									{(selectTool !== "scan" ? [ 9600, 14400, 19200 ] :
-									[ 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200 ]
-									).map(
+									{[ 2400, 4800, 9600, 14400, 19200, 38400, 57600, 115200 ].map(
 										baud => <MenuItem key={baud} onClick={handleSelectBaudrate(baud)}>{baud}</MenuItem>
 									)}
 								</Menu>
